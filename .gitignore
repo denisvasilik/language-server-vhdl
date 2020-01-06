@@ -1,0 +1,5 @@
+**/xtend-gen
+**/xtext-gen
+.gradle
+**/generated
+**/build
