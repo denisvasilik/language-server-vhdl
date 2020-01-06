@@ -1,0 +1,975 @@
+grammar com.eccelerators.plugins.vhdl.Vhdl hidden(T_WS, SL_COMMENT)
+
+import "http://www.eclipse.org/emf/2002/Ecore" as ecore
+
+generate vhdl "http://www.eccelerators.com/plugins/vhdl/Vhdl"
+
+Model:
+	designUnits+=DesignUnit*
+;
+
+DesignUnit:
+	contextClause+=ContextItem*
+	libraryUnit=LibraryUnit
+;
+
+LibraryUnit:
+	 PrimaryUnit 
+	 | SecondaryUnit 
+;
+
+PrimaryUnit: 
+	EntityDeclaration 			
+	| PackageDeclaration
+;
+
+SecondaryUnit:
+	ArchitectureDeclaration 
+	| PackageBody
+;
+
+EntityDeclaration:
+	'entity' name=ID 'is'
+		genericClause=GenericClause?
+		portClause=PortClause?
+		//
+		// FIXME: + Missing an entity declaration with entity declarative items
+		//		  + Missing an entity declaration with statements
+		//
+	'end' 'entity'? ref=[EntityDeclaration | ID]? ';'
+;
+
+ArchitectureDeclaration:
+	'architecture' name=ID 'of' entityRef=[EntityDeclaration | ID] 'is'
+		blocks+=( 
+				SignalDeclaration
+				| ConstantDeclaration
+				| ComponentDeclaration
+//				| ProcedureSpecification
+//				| FunctionDeclaration 
+				| AttributeDeclaration
+				| AttributeSpecification
+				| TypeDeclaration
+				)*
+	'begin'
+		statements+=(
+			ConditionalSignalAssignmentSatement
+			| ProcessStatement
+			| ComponentInstantiationStatement
+			| GenerateStatement
+			)*
+	'end' 'architecture'? ref=[ArchitectureDeclaration | ID]? ';'
+;
+
+PackageBody:
+	'package' 'body' name=[PackageDeclaration | ID] 'is'
+	 	declarations += PackageBodyDeclaration*
+	'end' 'package'? 'body'? ref=[PackageDeclaration | ID]? ';'
+;
+
+PackageBodyDeclaration returns PackageBodyDeclaration:
+	ProcedureDeclaration
+;
+
+PackageDeclaration:
+	'package' name=ID 'is'
+		items += (
+			SignalDeclaration
+			| ConstantDeclaration
+			| ComponentDeclaration
+			| SingleIdentifierDeclaration
+			| ProcedureSpecification
+		)*
+	'end' 'package'? ref=[PackageDeclaration | ID]? ';'
+;
+
+SingleIdentifierDeclaration:
+	TypeDeclaration 
+	| AliasDeclaration
+;
+
+AliasDeclaration:
+	'alias' name=(AliasIdentifier | CharacterLiteral | StringLiteral) ( ':' type=ParameterizedTypeIdentifierReference )? 'is' entity=ID ';'
+;
+
+TypeDeclaration returns Declaration:
+	FullTypeDeclaration 
+	| IncompleteTypeDeclaration
+;
+
+IncompleteTypeDeclaration returns Declaration:
+	{IncompleteTypeDeclaration}
+	'type' name=TypeIdentifier
+;
+
+FullTypeDeclaration:
+	ScalarTypeDefinition
+	| EnumerationTypeDefinition		
+	| CompositeTypeDefinition
+	//| AccessTypeDefinition
+	//| FileTypeDefinition	
+	//| ProtectedTypeDefinition
+;
+
+ScalarTypeDefinition returns ScalarTypeDefinition:
+	{ScalarTypeDefinition}
+	 'type' name=ScalarTypeIdentifier 'is' constraint=RangeStatement
+	 ('units'
+		declarationList=SecondaryUnitDeclarationList
+	 'end' 'units' (ref=[ScalarTypeIdentifier | ID])? )? ';'
+;
+
+SecondaryUnitDeclarationList:
+	head=PrimaryUnitDeclaration 
+	tail+=SecondaryUnitDeclaration*
+;
+
+PrimaryUnitDeclaration:
+	name=SignalOrConstantIdentifier ';'
+;
+
+SecondaryUnitDeclaration:
+	name=SignalOrConstantIdentifier '=' value=PhysicalLiteral ';'
+;
+
+EnumerationTypeDefinition returns EnumerationTypeDefinition:
+	{EnumerationTypeDefinition}
+	'type' name=TypeIdentifier 'is'	'(' head=(EnumerationIdentifier | CharacterLiteral) ( ',' tail+=(EnumerationIdentifier | CharacterLiteral) )* ')' ';'
+;
+
+CompositeTypeDefinition returns CompositeTypeDefinition:
+	ArrayTypeDefinition 
+	| RecordTypeDefinition
+;
+
+ArrayTypeDefinition returns ArrayTypeDefinition:
+	{ArrayTypeDefinition}
+	'type' name=TypeIdentifier 'is' 'array' arrayConstraint=ArrayOuterRangeConstraint 'of' type=ParameterizedTypeIdentifierReference ';'
+;
+
+RecordTypeDefinition returns RecordTypeDefinition:
+	{RecordTypeDefinition}
+	'type' name=RecordTypeIdentifier 'is'
+	'record'
+		elements += RecordElementSignalDeclaration*
+	'end' 'record' ( ref=[RecordTypeIdentifier | ID] )?  ';'
+;
+
+RecordElementSignalDeclaration returns Declaration:
+	identifiers=DeclaredSignalIdentifiers ':' type=ParameterizedTypeIdentifierReference ';'
+;
+
+ConditionalSignalAssignmentSatement returns ConditionalSignalAssignmentSatement:
+	{ConditionalSignalAssignmentSatement}
+	( name=ID ':' )? 
+	target=QualifiedIdentifierReference '<=' conditionalExpression=Expression 
+	('when' whenExpressions+=Expression 'else' elseExpressions+=Expression)* ';'
+;
+
+ComponentInstantiationStatement returns ComponentInstantiationStatement:
+	{ComponentInstantiationStatement}
+	name=ID ':' type=[ComponentDeclaration | ID]
+	genericMapAspect=GenericMapAspect?
+	portMapAspect=PortMapAspect? ';'
+;
+
+SubtypeDeclaration returns SubtypeDeclaration:
+	{SubtypeDeclaration}
+	'subtype' name=TypeIdentifier 'is' type=ParameterizedTypeIdentifierReference ';'
+;
+
+GenericMapAspect:
+	'generic' 'map' associationList=AssociationList
+;
+
+PortMapAspect:
+	'port' 'map' associationList=AssociationList 
+;
+
+AssociationList:
+	'(' head=AssociationElement ( ',' tail+=AssociationElement )* ')'
+;
+
+AssociationElement:
+	formalPart=FormalPart? actualPart=ActualPart
+;
+
+FormalPart returns FormalPart:
+	{FormalPart}
+	name=PortIdentifierReference '=>'
+;
+
+ActualPart returns ActualPart:
+	{ActualPart}
+	'inertial'? expression=Expression
+	| open=OpenElement
+;
+
+OpenElement returns OpenElement:
+	{OpenElement}
+	'open'
+;
+
+GenerateStatement:
+	name=ID ':' generationScheme=GenerationScheme 'generate'
+		( blocks += ( SingleIdentifierDeclaration
+					| UseClause
+					| SignalDeclaration
+					| ComponentDeclaration
+					| AttributeDeclaration
+					| AttributeSpecification )*
+	'begin')?
+		concurrentStatements += ( GenerateStatement
+								| ProcessStatement 
+								| ConditionalSignalAssignmentSatement
+								| ComponentInstantiationStatement )*
+	'end' 'generate' ref=[GenerateStatement | ID]? ';'
+;
+
+GenerationScheme:
+	'for' name=ID 'in' range=InnerRangeConstraint | 
+	'if' Expression
+;
+
+ProcessStatement:
+	{ProcessStatement}
+	( name=ID ':' )?
+	'process' (sensitivityList=SensitivityList)? 'is'?
+	 	items += ProcessDeclarativeItem*
+	'begin'
+		statements += SequentialStatement*
+	'end' 'process' ref=[ProcessStatement | ID]? ';'
+;
+
+ProcedureSpecification:
+	'procedure' name=ProcedureIdentifier ( '(' interfaceList=InterfaceList ')' )? ';'
+;
+
+ProcedureDeclaration:
+	'procedure' name=ProcedurePlainIdentifier ( '(' interfaceList=InterfaceList ')' )?
+	'is'
+		declarations += MultiIdentifierDeclaration*
+	'begin'
+		statements += SequentialStatement*
+	'end' 'procedure'? ref=[ProcedurePlainIdentifier | ID]? ';'
+;
+
+MultiIdentifierDeclaration:
+	SignalDeclaration
+	| ConstantDeclaration 
+	//| VariableDeclaration 
+	//| FileDeclaration
+;
+
+// NOTE: Is not used by the parser. Is just used
+//		 to add the name property to the ComponentDeclaration
+//		 parser rule.
+NamedDeclaration returns NamedDeclaration:
+	{NamedDeclaration}
+	name=ID
+;
+
+ComponentDeclaration returns NamedDeclaration:
+	{ComponentDeclaration}
+	'component' entityRef=[EntityDeclaration | ID] 'is'?
+		genericClause = GenericClause?
+		portClause = PortClause?
+	'end' 'component' ref=[ComponentDeclaration | ID]? ';'
+;
+
+VariableDeclaration returns Declaration:
+	{VariableDeclaration}
+	'shared'? 'variable' identifiers=DeclaredVariableIdentifiers ':' type=ParameterizedTypeIdentifierReference ( ':=' expression=Expression )? ';'
+;
+
+ConstantDeclaration returns Declaration:
+	{ConstantDeclaration}
+	'constant' identifiers=DeclaredConstantIdentifiers ':' type=ParameterizedTypeIdentifierReference ( ':=' expression=Expression )? ';'
+;
+
+SignalDeclaration returns Declaration:
+	{SignalDeclaration}
+	'signal' identifiers=DeclaredSignalIdentifiers ':' type=ParameterizedTypeIdentifierReference kind=Kind? ( ':=' expression=Expression )? ';'
+;
+
+FileDeclaration returns FileDeclaration:
+	'file' identifiers=DeclaredSignalIdentifiers ':' type=ParameterizedTypeIdentifierReference info=FileOpenInformation? ';'
+;
+
+FileOpenInformation returns FileOpenInformation:
+	{FileOpenInformation}
+	('open' kind=Expression)? 'is' filepath=Expression
+;
+
+AttributeDeclaration returns AttributeDeclaration:
+	{AttributeDeclaration}
+	'attribute' name=ID ':' type=ParameterizedTypeIdentifierReference ';'
+;
+
+AttributeSpecification returns AttributeSpecification:
+	{AttributeSpecification}
+	'attribute' name=ID 'of' entityNameList=EntityNameList ':' entityClass=EntityClass 'is' expression=Expression ';'
+;
+
+EntityNameList:
+	Head=EntityDesignator ( ',' Tail+=EntityDesignator )*	| 
+	{EntityNameList} 'others' | 
+	{EntityNameList} 'all'
+;
+
+EntityDesignator:
+	tag=(Identifier | CharacterLiteral | StringLiteral) signature?=Signature?
+;
+
+Signature:
+	 {Signature}
+	 '[' (Head=Identifier (',' Tail+=[EntityDeclaration | ID])* )? ('return' name=ParameterizedTypeIdentifierReference )? ']'
+;
+
+EntityClass:
+	'entity' 		| 
+	'architecture'	| 
+	'configuration' | 
+	'procedure' 	| 
+	'function' 		| 
+	'package' 		|
+	'type' 			| 
+	'subtype'		| 
+	'constant'		|
+	'signal'		| 
+	'variable'		| 
+	'component'		|
+	'identifier'	| 
+	'literal'		| 
+	'units'			| 
+	'group'			| 
+	'file' 			|
+	'label'
+;
+
+ContextItem returns ContextItem:
+	LibraryClause | UseClause
+;
+
+UseClause returns UseClause:
+	'use' importedNamespace=PackageReference  (',' importedNamespaceList+=PackageReference)*  ';'
+;
+
+//TODO: Unable to use a cross-reference [PackageDeclaration | ID] -> causes an event loop exception at runtime
+PackageReference:
+	library=LibraryIdentifier '.' package=ID ('.' postfix='all')?
+;
+
+LibraryClause returns LibraryClause:	
+	'library' name += LibraryIdentifier (',' name += LibraryIdentifier)* ';' 
+;
+
+GenericClause returns GenericClause:
+	{GenericClause}
+	'generic' '(' interfaceList=InterfaceList ')' ';'
+;
+
+PortClause returns PortClause:
+	{PortClause}
+	'port' '(' interfaceList=PortInterfaceList ')' ';'
+;
+
+ProcessDeclarativeItem returns Declaration:
+	VariableDeclaration
+	| ConstantDeclaration
+	| TypeDeclaration
+	| SubtypeDeclaration
+	| FileDeclaration
+;
+
+SequentialStatement:
+	WaitStatement
+	| AssertionStatement
+	| ReportStatement
+	| AssignmentStatement
+	| ConditionalStatement
+	| CaseStatement
+	| LoopStatement
+	| NextStatement
+	| ExitStatement
+	| ReturnStatement
+	| NullStatement
+;
+
+WaitStatement returns WaitStatement:
+	{WaitStatement}
+	( name=ID ':' )?
+	'wait'
+		sensitivityClause=(SensitivityClause)? 
+		conditionClause=(ConditionClause)? 
+		timeoutClause=(TimeoutClause)? ';'
+;
+
+SensitivityClause: 
+	'on' list=SensitivityList
+;
+
+SensitivityList:
+	'(' head=QualifiedIdentifierReference (',' tail+=QualifiedIdentifierReference )* ')'
+; 
+ 
+ConditionClause:
+	'until' condition=Expression
+;
+
+TimeoutClause:
+	'for' Expression
+;
+
+AssertionStatement:
+	( name=ID ':' )? 'assert' condition=Expression 'report' report=Expression ('severity' severity=Expression)? ';'
+;
+
+ReportStatement:
+	( name=ID ':' )? 'report' report=Expression ('severity' severity=Expression)? ';'
+;
+
+AssignmentStatement:
+	( name=ID ':' )?
+	statement=SignalAssignmentOrVariableAssignmentOrProcedureCallStatement
+;
+
+SignalAssignmentOrVariableAssignmentOrProcedureCallStatement:
+	QualifiedIdentifierReference
+	(
+		{SignalAssignmentStatement.target=current} '<=' rightRef=Expression ('after' time=Expression)? ';'	|
+		{VariableAssignmentStatement.target=current} ':=' expression=Expression ';' |
+		{ProcedureCallStatement.target=current} ';'
+	)
+;
+
+ConditionalStatement:
+	( name=ID ':' )?
+	ifStatement = IfStatement
+	elseIfStatements += (ElseIfStatement)*
+	elseStatement = (ElseStatement)?
+	'end' 'if' end=[ConditionalStatement | ID]? ';'
+;
+
+IfStatement:
+	'if' condition=Expression 'then' statements+=SequentialStatement*
+;
+
+ElseIfStatement:
+	'elsif' condition=Expression 'then' statements+=SequentialStatement*
+;
+
+ElseStatement:
+	{ElseStatement}
+	'else' statements+=SequentialStatement* 
+;
+
+CaseStatement:
+	( name=ID ':' )?
+	'case' condition=Expression 'is'
+		alternatives += CaseStatementAlternative+
+	'end' 'case' end=ID? ';'
+;
+
+LoopStatement returns LoopStatement:
+	{LoopStatement}
+	( name=ID ':' )?
+	scheme=IterationScheme? 'loop'
+		statements+=SequentialStatement*
+	'end''loop' ref=[LoopStatement| ID]? ';'
+;
+
+IterationScheme:
+	'while' expression=Expression
+	| 'for' ParameterSpecification
+;
+
+ParameterSpecification:
+	identifier=Identifier 'in' range=DiscreteRange
+;
+
+DiscreteRange:
+	TypeIdentifierReference attribute=AttributeConstraint?
+	| InnerRangeConstraint
+;
+
+NextStatement returns NextStatement:
+	{NextStatement}
+	( name=ID ':')? 'next' loopRef=[LoopStatement| ID]? ('when' condition=Expression)? ';'
+;
+
+ExitStatement returns ExitStatement:
+	{ExitStatement}
+	( name=ID ':' )? 'exit' loopRef=[LoopStatement| ID]? ('when' condition=Expression)? ';'
+;
+
+ReturnStatement returns ReturnStatement:
+	{ReturnStatement}
+	( name=ID ':')? 'return' expression=Expression ';'
+;
+
+NullStatement returns NullStatement:
+	{NullStatement}
+	( name=ID ':')? 'null' ';'
+;
+
+CaseStatementAlternative:
+	'when' choices=Choices '=>' statements+=SequentialStatement*
+;
+
+Choices: 
+	Head=Choice ( '|' Tail+=Choice )*
+;
+
+Choice:
+	OptionalRangeConstraint |
+	{Choice} 'others'
+;
+
+Parameters:
+	'(' head=Parameter ( ',' tail+=Parameter )* ')'
+;
+
+//
+// FIX ME: Use FunctionIdentifierReference for functions!!!
+//
+IdentifierReference returns IdentifierReference:
+	{IdentifierReference}
+	ref=[Identifier | ID]
+;
+
+//
+// NOTE: Constraint can lead to left recursion LL*
+//
+ParameterizedIdentifierReference returns IdentifierReference:
+	{IdentifierReference}
+	ref=[Identifier | ID] constraint=Constraint?
+;
+
+Constraint returns Constraint:
+	OuterRangeOrIndexOrParameterConstraint
+	| AttributeConstraint
+	| TypeIdentifierRangeConstraint
+;
+
+TypeIdentifierRangeConstraint:
+	{TypeIdentifierRangeConstraint}
+	('range' '<>')
+;
+
+PortIdentifierReference returns PortIdentifierReference:
+	{PortIdentifierReference}
+	ref=[PortIdentifier | ID]
+;
+
+TypeIdentifierReference returns TypeIdentifierReference:
+	{TypeIdentifierReference}
+	ref=[TypeIdentifier | ID] 
+;
+
+ParameterizedTypeIdentifierReference returns ParameterizedTypeIdentifierReference:
+	{ParameterizedTypeIdentifierReference}
+	ref=[TypeIdentifier | ID] constraint=TypeIdentifierOuterRangeConstraint?
+;
+
+Parameter returns Parameter:
+	{Parameter}
+	param=(QualifiedIdentifierReference | Literal)
+;
+
+QualifiedIdentifierReference returns IdentifierReference:
+	ParameterizedIdentifierReference ( {QualifiedIdentifierReference.object=current} '.' field=[Identifier | ID] constraint=Constraint? )*
+;
+
+Identifier returns Identifier:
+	{Identifier}
+	name=ID
+;
+
+PortIdentifier returns Identifier:
+	{PortIdentifier}
+	name=ID
+;
+
+SignalOrConstantIdentifier returns Identifier:
+	{SignalOrConstantIdentifier}
+	name=ID
+;
+
+LibraryIdentifier returns Identifier:
+	{LibraryIdentifier}
+	name=('std' | 'ieee' | ID)
+;
+
+VariableIdentifier returns Identifier:
+	{VariableIdentifier}
+	name=ID
+;
+
+EnumerationIdentifier returns Identifier:
+	{EnumerationIdentifier}
+	name=ID
+;
+
+AliasIdentifier returns Identifier:
+	{AliasIdentifier}
+	name=ID
+;
+
+TypeIdentifier returns TypeIdentifier:
+	{TypeIdentifier}
+	name=ID
+;
+
+RecordTypeIdentifier returns TypeIdentifier:
+	{RecordTypeIdentifier}
+	name=ID
+;
+
+ScalarTypeIdentifier returns TypeIdentifier:
+	{ScalarTypeIdentifier}
+	name=ID
+;
+
+EntityIdentifier returns EntityIdentifier:
+	{EntityIdentifier}
+	name=ID
+;
+
+ComponentIdentifier returns EntityIdentifier:
+	{ComponentIdentifier}
+	name=ID
+;
+
+ProcedureIdentifier returns Identifier:
+	( ProcedurePlainIdentifier
+	| ProcedureStringIdentifier
+	| ProcedureCharacterIdentifier
+	| ProcedureExtendedIdentifier )
+;
+
+ProcedurePlainIdentifier returns ProcedureIdentifier:
+	{ProcedurePlainIdentifier}
+	name=ID 
+;
+
+ProcedureStringIdentifier returns ProcedureIdentifier:
+	{ProcedureStringIdentifier}
+	name=T_STRING_LITERAL
+;
+
+ProcedureCharacterIdentifier returns ProcedureIdentifier:
+	{ProcedureCharacterIdentifier}
+	name=T_CHARACTER_LITERAL
+;
+
+ProcedureExtendedIdentifier returns ProcedureIdentifier:
+	{ProcedureExtendedIdentifier}
+	name=T_EXTENDED_IDENTIFIER
+;
+
+PortInterfaceList returns InterfaceList:
+	{PortInterfaceList}
+	head=PortInterfaceDeclaration ( ';' tail+=PortInterfaceDeclaration )*
+;
+
+PortInterfaceDeclaration returns InterfaceDeclaration:
+	{PortInterfaceDeclaration}
+	'signal'? identifiers=DeclaredPortIdentifiers ':' mode=Mode? type=ParameterizedTypeIdentifierReference 'bus'? ( ':=' expression=Expression )?
+;
+
+InterfaceList:
+	head=InterfaceDeclaration ( ';' tail+=InterfaceDeclaration )*
+;
+
+InterfaceDeclaration returns InterfaceDeclaration:
+	SignalInterfaceDeclaration
+	| ConstantInterfaceDeclaration
+	//
+	// FIXME: VariableInterfaceDeclaration | FileInterfaceDeclaration
+	//
+;
+
+SignalInterfaceDeclaration returns SignalInterfaceDeclaration:
+	{SignalInterfaceDeclaration}
+	'signal'? identifiers=DeclaredSignalIdentifiers ':' mode=Mode? type=ParameterizedTypeIdentifierReference 'bus'? ( ':=' expression=Expression )?
+;
+
+ConstantInterfaceDeclaration returns ConstantInterfaceDeclaration:
+	{ConstantInterfaceDeclaration}
+	'constant' identifiers=DeclaredConstantIdentifiers ':' mode=Mode? type=ParameterizedTypeIdentifierReference ( ':=' expression=Expression )?
+;
+
+DeclaredPortIdentifiers returns DeclaredIdentifiers:
+	{DeclaredPortIdentifiers}
+	head=PortIdentifier ( ',' tail+=PortIdentifier )*
+;
+
+DeclaredSignalIdentifiers returns DeclaredIdentifiers:
+	{DeclaredSignalIdentifiers}
+	head=SignalOrConstantIdentifier ( ',' tail+=SignalOrConstantIdentifier )*
+;
+
+DeclaredConstantIdentifiers returns DeclaredIdentifiers:
+	{DeclaredConstantIdentifiers}
+	head=SignalOrConstantIdentifier ( ',' tail+=SignalOrConstantIdentifier )*
+;
+
+DeclaredVariableIdentifiers returns DeclaredIdentifiers:
+	{DeclaredVariableIdentifiers}
+	head=VariableIdentifier ( ',' tail+=VariableIdentifier )*
+;
+
+//
+// Expression
+//
+
+Expression returns ExpressionDeclaration:
+	relation
+	
+	( {ExpressionDeclaration.left=current} 'nand' right=relation  | 
+	  {ExpressionDeclaration.left=current} 'nor' right=relation   )?
+	  
+	( {ExpressionDeclaration.left=current} 'and' right=relation   | 
+	  {ExpressionDeclaration.left=current} 'or' right=relation    | 
+	  {ExpressionDeclaration.left=current} 'xor' right=relation   | 
+	  {ExpressionDeclaration.left=current} 'xnor' right=relation  )* 
+;
+
+relation returns ExpressionDeclaration:
+	shift_expression({ExpressionDeclaration.left=current} ('/=' | '<' | '>' | '>=' | '=' | '<=') right=shift_expression)?
+;
+
+shift_expression returns ExpressionDeclaration:
+	simple_expression ({ExpressionDeclaration.left=current} ('sll' | 'srl' | 'sla' | 'sra' | 'rol' | 'ror') right=simple_expression )?
+;
+
+simple_expression returns ExpressionDeclaration:
+	('+' | '-')? term ({ExpressionDeclaration.left=current} ('+' | '-' | '&') right=term )*
+;
+
+term returns ExpressionDeclaration:
+	factor ({ExpressionDeclaration.left=current} ('*' | '/' | 'mod' | 'rem') right=factor )*
+;
+
+factor returns ExpressionDeclaration:
+	('abs' | 'not')? 
+	(
+		( Primary ( '**' exponent=Primary )? ) {ExpressionDeclaration.left=current} 
+		| Inner {ExpressionDeclaration.left=current}
+		| InnerOthers {ExpressionDeclaration.left=current}
+	)
+;
+
+InnerHead:
+	expr=Expression
+;
+
+Inner returns ExpressionDeclaration:
+	'(' inner=InnerExpressionOrInnerAggregate ')'
+;
+
+InnerExpressionOrInnerAggregate:
+	innerHead=InnerHead
+	(
+		{InnerExpression.head=current} (',' tail+=Expression)* |
+		{InnerAggregate.first=current} ('to' | 'downto') second=Expression '=>' third=Expression
+	)
+;
+
+InnerOthers:
+	'(' 'others' '=>' third=Expression ')'
+;
+
+OuterRangeOrIndexOrParameterConstraint:
+	'(' InnerRangeOrIndexOrParameterConstraint	')'
+;
+
+InnerRangeOrIndexOrParameterConstraint:
+	Expression
+	(
+		{RangeConstraint.first=current} ('to' | 'downto') second=Expression 
+		| {ParameterList.head=current} ( ',' tail+=Expression )*
+	)
+;
+
+ArrayOuterRangeConstraint:
+	'(' OptionalRangeConstraint ( ',' tail+=OptionalRangeConstraint )* ')'
+;
+
+OptionalRangeConstraint:	
+	first=Expression (('to' | 'downto') second=Expression)?
+;
+
+TypeIdentifierOuterRangeConstraint returns TypeIdentifierOuterRangeConstraint:
+	{TypeIdentifierOuterRangeConstraint}
+	('range' '<>')
+	| ('range' InnerRangeConstraint)
+	| '(' InnerRangeConstraint ')'
+;
+
+RangeStatement:
+	'range' InnerRangeConstraint
+;
+
+InnerRangeConstraint:
+	 first=Expression ('to' | 'downto') second=Expression
+;
+
+AttributeConstraint returns Constraint:
+	// NOTE: Currently, only attributes most likely supported by
+	//       synthesis tools are listed here.
+	  {AttributeConstraint} '\'LEFT' ('(' value=IntegerLiteral ')')?
+	| {AttributeConstraint} '\'RIGHT' ('(' value=IntegerLiteral ')')?
+	| {AttributeConstraint} '\'LOW' ('(' value=IntegerLiteral ')')?
+	| {AttributeConstraint} '\'HIGH' ('(' value=IntegerLiteral ')')?
+	| {AttributeConstraint} '\'RANGE' ('(' value=IntegerLiteral ')')?
+	| {AttributeConstraint} '\'REVERSE_RANGE' '(' value=IntegerLiteral ')'
+	| {AttributeConstraint} '\'LENGTH' ('(' value=IntegerLiteral ')')?
+	| {AttributeConstraint} '\'EVENT'
+	| {AttributeConstraint} '\'(' value=StringLiteral ')'
+;
+
+Primary returns Primary:
+	{Primary} 
+	value=( Literal	| QualifiedIdentifierReference | PhysicalLiteral )
+;
+
+Literal returns Literal:
+	( NumericLiteral	|
+  	  CharacterLiteral  |
+  	  StringLiteral		| 
+  	  BitStringLiteral	|
+  	  StringNull )
+;
+
+NumericLiteral:
+	IntegerLiteral |
+	DecimalLiteral |
+	BasedLiteral
+;
+
+PhysicalLiteral:
+	value=NumericLiteral unit=ID
+;
+
+IntegerLiteral returns IntegerLiteral:
+	{IntegerLiteral}
+	T_INTEGER_LITERAL
+;
+
+DecimalLiteral returns DecimalLiteral:
+	{DecimalLiteral}
+	T_DECIMAL_LITERAL
+;
+
+BasedLiteral returns BasedLiteral:
+	{BasedLiteral}
+	T_BASED_LITERAL
+;
+
+CharacterLiteral returns CharacterLiteral:
+	{CharacterLiteral} 
+	value=T_CHARACTER_LITERAL 
+;
+
+StringLiteral returns StringLiteral:
+	{StringLiteral}
+	T_STRING_LITERAL
+;
+
+BitStringLiteral returns BitStringLiteral:
+	{BitStringLiteral}
+	T_BIT_STRING_LITERAL
+;
+
+StringNull returns StringNull:
+	{StringNull}
+	'null'
+;
+
+Kind returns Kind:
+	{Kind}
+	name=( 'register' | 'bus' )
+;
+
+Mode returns Mode:
+	{Mode}
+	name=('in'
+	| 'out' 
+	| 'inout' 
+	| 'buffer' 
+	| 'linkage')
+;
+
+terminal T_ATTRIBUTE_CONSTRAINT:
+	'\'' ID
+;
+
+terminal T_CHARACTER_LITERAL returns ecore::EString:
+	'\'' ( ('A'..'Z') | ('a'..'z') | ('0'..'9') | T_SPECIAL_CHARACTER | 
+	        '\\' | '"'   | '\'' | ' ' |
+			' ' |   '¡'|   '¢'|   '£'|   '¤'|   '¥'|   '¦'|   '§'|
+	        '¨' |   '©'|   'ª'|   '«'|   '¬'|   '­'|   '®'|   '¯'|
+	        '°' |   '±'|   '²'|   '³'|   '´'|   'µ'|   '¶'|   '·'|
+	        '¸' |   '¹'|   'º'|   '»'|   '¼'|   '½'|   '¾'|   '¿'|
+	        'À' |   'Á'|   'Â'|   'Ã'|   'Ä'|   'Å'|   'Æ'|   'Ç'|
+	        'È' |   'É'|   'Ê'|   'Ë'|   'Ì'|   'Í'|   'Î'|   'Ï'|
+	        'Ð' |   'Ñ'|   'Ò'|   'Ó'|   'Ô'|   'Õ'|   'Ö'|   '×'|
+	        'Ø' |   'Ù'|   'Ú'|   'Û'|   'Ü'|   'Ý'|   'Þ'|   'ß'|
+	        'à' |   'á'|   'â'|   'ã'|   'ä'|   'å'|   'æ'|   'ç'|
+	        'è' |   'é'|   'ê'|   'ë'|   'ì'|   'í'|   'î'|   'ï'|
+	        'ð' |   'ñ'|   'ò'|   'ó'|   'ô'|   'õ'|   'ö'|   '÷'|
+	        'ø' |   'ù'|   'ú'|   'û'|   'ü'|   'ý'|   'þ'|   'ÿ' 	         
+	)? '\''
+;
+
+terminal T_STRING_LITERAL returns ecore::EString:
+	'"' ( ('A'..'Z') | ('a'..'z') | ('0'..'9') | T_WS | T_SPECIAL_CHARACTER | '\'' | '\\' | '""' )* '"'
+;
+
+terminal T_BIT_STRING_LITERAL returns ecore::EString:
+	('b' | 'o' | 'x') T_STRING_LITERAL
+;
+
+terminal T_BASED_LITERAL returns ecore::EString:
+	( ('_') | ('0'..'9') )+ '#' ID ( '.' ID )? '#' (T_EXPONENT)?
+;
+
+terminal T_SPECIAL_CHARACTER returns ecore::EString:
+	'#' | '&' |  '(' |					//  " and \  is missing
+	')' | '*' | '+'  | ','  | '-' | 
+	'.' | '/' | ':'  | ';'  | '<' | 
+	'=' | '>' | '['  | ']'  | '_' | 
+	'|'	| '!' | '$'  | '%'  | '@' | 
+	'?' |  '^'  | '`'  | '{' | 
+	'}' | '~'
+;
+
+terminal T_EXTENDED_IDENTIFIER returns ecore::EString:
+	'\\' ( ('A'..'Z') | ('a'..'z') | ('0'..'9') | T_SPECIAL_CHARACTER )+ '\\'
+;
+
+terminal ID returns ecore::EString:
+	( '$' | ('A'..'Z') | ('a'..'z') ) ( '_' | ('A'..'Z') | ('a'..'z') | ('0'..'9') )* 
+;
+
+terminal T_INTEGER_LITERAL returns ecore::EString:
+	( ('_') | ('0'..'9') )+
+;
+
+terminal T_DECIMAL_LITERAL returns ecore::EString:
+	( ('_') | ('0'..'9') )+ ( '.' ( ('_') | ('0'..'9') )+ )? ( T_EXPONENT )?
+;
+
+terminal T_EXPONENT returns ecore::EString:
+	('e') ('+')? ( ('_') | ('0'..'9') )+ | ('e') '-' ( ('_') | ('0'..'9') )+
+;
+
+terminal SL_COMMENT returns ecore::EString:
+	'--' !('\n'|'\r')* ('\r'? '\n')?
+;
+
+terminal T_WS returns ecore::EString:
+	(' '|'\t'|'\r'|'\n')+
+;
