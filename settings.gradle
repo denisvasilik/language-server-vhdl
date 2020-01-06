@@ -1,0 +1,2 @@
+include 'com.eccelerators.plugins.vhdl'
+include 'com.eccelerators.plugins.vhdl.ide'

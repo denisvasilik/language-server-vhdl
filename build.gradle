@@ -1,0 +1,34 @@
+buildscript {
+	repositories {
+		mavenCentral()
+	}
+	dependencies {
+		classpath 'org.xtext:xtext-gradle-plugin:2.0.7'
+	}
+}
+
+subprojects {
+	ext.xtextVersion = '2.19.0'
+
+	repositories {
+		mavenCentral()
+	}
+
+	apply plugin: 'java'
+	dependencies {
+		compile platform("org.eclipse.xtext:xtext-dev-bom:${xtextVersion}")
+	}
+
+	apply plugin: 'org.xtext.xtend'
+	apply from: "${rootDir}/gradle/source-layout.gradle"
+	apply plugin: 'eclipse'
+
+	group = 'com.eccelerators.plugins.vhdl'
+
+	sourceCompatibility = '8'
+	targetCompatibility = '8'
+
+	configurations.all {
+		exclude group: 'asm'
+	}
+}
