@@ -179,23 +179,36 @@ SubtypeDeclaration returns SubtypeDeclaration:
 ;
 
 GenericMapAspect:
-	'generic' 'map' associationList=AssociationList
+	'generic' 'map' associationList=GenericAssociationList
+;
+
+GenericAssociationList:
+	'(' head=GenericAssociationElement ( ',' tail+=GenericAssociationElement )* ')'
+;
+
+GenericAssociationElement:
+	formalPart=GenericFormalPart? actualPart=ActualPart
+;
+
+GenericFormalPart returns GenericFormalPart:
+	{GenericFormalPart}
+	name=GenericIdentifierReference '=>'
 ;
 
 PortMapAspect:
-	'port' 'map' associationList=AssociationList 
+	'port' 'map' associationList=PortAssociationList 
 ;
 
-AssociationList:
-	'(' head=AssociationElement ( ',' tail+=AssociationElement )* ')'
+PortAssociationList:
+	'(' head=PortAssociationElement ( ',' tail+=PortAssociationElement )* ')'
 ;
 
-AssociationElement:
-	formalPart=FormalPart? actualPart=ActualPart
+PortAssociationElement:
+	formalPart=PortFormalPart? actualPart=ActualPart
 ;
 
-FormalPart returns FormalPart:
-	{FormalPart}
+PortFormalPart returns PortFormalPart:
+	{PortFormalPart}
 	name=PortIdentifierReference '=>'
 ;
 
@@ -366,7 +379,7 @@ LibraryClause returns LibraryClause:
 
 GenericClause returns GenericClause:
 	{GenericClause}
-	'generic' '(' interfaceList=InterfaceList ')' ';'
+	'generic' '(' interfaceList=GenericInterfaceList ')' ';'
 ;
 
 PortClause returns PortClause:
@@ -557,6 +570,11 @@ TypeIdentifierRangeConstraint:
 	('range' '<>')
 ;
 
+GenericIdentifierReference returns GenericIdentifierReference:
+	{GenericIdentifierReference}
+	ref=[GenericIdentifier | ID]
+;
+
 PortIdentifierReference returns PortIdentifierReference:
 	{PortIdentifierReference}
 	ref=[PortIdentifier | ID]
@@ -583,6 +601,11 @@ QualifiedIdentifierReference returns IdentifierReference:
 
 Identifier returns Identifier:
 	{Identifier}
+	name=ID
+;
+
+GenericIdentifier returns Identifier:
+	{GenericIdentifier}
 	name=ID
 ;
 
@@ -668,6 +691,11 @@ ProcedureExtendedIdentifier returns ProcedureIdentifier:
 	name=T_EXTENDED_IDENTIFIER
 ;
 
+GenericInterfaceList returns InterfaceList:
+	{GenericInterfaceList}
+	head=GenericInterfaceDeclaration ( ';' tail+=GenericInterfaceDeclaration )*
+;
+
 PortInterfaceList returns InterfaceList:
 	{PortInterfaceList}
 	head=PortInterfaceDeclaration ( ';' tail+=PortInterfaceDeclaration )*
@@ -676,6 +704,11 @@ PortInterfaceList returns InterfaceList:
 PortInterfaceDeclaration returns InterfaceDeclaration:
 	{PortInterfaceDeclaration}
 	'signal'? identifiers=DeclaredPortIdentifiers ':' mode=Mode? type=ParameterizedTypeIdentifierReference 'bus'? ( ':=' expression=Expression )?
+;
+
+GenericInterfaceDeclaration returns InterfaceDeclaration:
+	{GenericInterfaceDeclaration}
+	'signal'? identifiers=DeclaredGenericIdentifiers ':' mode=Mode? type=ParameterizedTypeIdentifierReference 'bus'? ( ':=' expression=Expression )?
 ;
 
 InterfaceList:
@@ -698,6 +731,11 @@ SignalInterfaceDeclaration returns SignalInterfaceDeclaration:
 ConstantInterfaceDeclaration returns ConstantInterfaceDeclaration:
 	{ConstantInterfaceDeclaration}
 	'constant' identifiers=DeclaredConstantIdentifiers ':' mode=Mode? type=ParameterizedTypeIdentifierReference ( ':=' expression=Expression )?
+;
+
+DeclaredGenericIdentifiers returns DeclaredIdentifiers:
+	{DeclaredPortIdentifiers}
+	head=GenericIdentifier ( ',' tail+=GenericIdentifier )*
 ;
 
 DeclaredPortIdentifiers returns DeclaredIdentifiers:

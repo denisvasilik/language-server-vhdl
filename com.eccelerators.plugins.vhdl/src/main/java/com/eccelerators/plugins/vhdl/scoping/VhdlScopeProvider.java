@@ -2,6 +2,8 @@ package com.eccelerators.plugins.vhdl.scoping;
 
 import java.util.List;
 
+import javax.management.RuntimeErrorException;
+
 import org.eclipse.emf.common.util.BasicEList;
 import org.eclipse.emf.common.util.EList;
 import org.eclipse.emf.ecore.EClass;
@@ -30,6 +32,11 @@ import com.eccelerators.plugins.vhdl.vhdl.EntityDeclaration;
 import com.eccelerators.plugins.vhdl.vhdl.EntityIdentifier;
 import com.eccelerators.plugins.vhdl.vhdl.ExpressionDeclaration;
 import com.eccelerators.plugins.vhdl.vhdl.FullTypeDeclaration;
+import com.eccelerators.plugins.vhdl.vhdl.GenericAssociationElement;
+import com.eccelerators.plugins.vhdl.vhdl.GenericIdentifier;
+import com.eccelerators.plugins.vhdl.vhdl.GenericIdentifierReference;
+import com.eccelerators.plugins.vhdl.vhdl.GenericInterfaceDeclaration;
+import com.eccelerators.plugins.vhdl.vhdl.GenericMapAspect;
 import com.eccelerators.plugins.vhdl.vhdl.Identifier;
 import com.eccelerators.plugins.vhdl.vhdl.IdentifierReference;
 import com.eccelerators.plugins.vhdl.vhdl.InterfaceDeclaration;
@@ -39,6 +46,7 @@ import com.eccelerators.plugins.vhdl.vhdl.PackageDeclaration;
 import com.eccelerators.plugins.vhdl.vhdl.ParameterizedTypeIdentifierReference;
 import com.eccelerators.plugins.vhdl.vhdl.PortIdentifier;
 import com.eccelerators.plugins.vhdl.vhdl.PortIdentifierReference;
+import com.eccelerators.plugins.vhdl.vhdl.PortMapAspect;
 import com.eccelerators.plugins.vhdl.vhdl.ProcedureIdentifier;
 import com.eccelerators.plugins.vhdl.vhdl.ProcessStatement;
 import com.eccelerators.plugins.vhdl.vhdl.QualifiedIdentifierReference;
@@ -228,10 +236,35 @@ public class VhdlScopeProvider extends org.eclipse.xtext.scoping.impl.AbstractDe
 		return IScope.NULLSCOPE;
 	}
 	
+	protected IScope scope_GenericIdentifierReference_ref(GenericIdentifierReference genericIdentifierReference, EReference ref) {
+ 		Model model = (Model) genericIdentifierReference.eResource().getContents().get(0);
+ 		ComponentInstantiationStatement componentInstantiation = (ComponentInstantiationStatement)genericIdentifierReference.eContainer().eContainer().eContainer().eContainer().eContainer();
+ 		
+ 		List<ComponentDeclaration> componentDeclarations = EcoreUtil2.getAllContentsOfType(model, ComponentDeclaration.class);
+		List<Identifier> identifiers = new BasicEList<Identifier>();
+ 		
+ 		for(ComponentDeclaration componentDeclaration : componentDeclarations) {
+ 			if(componentDeclaration.getName().equalsIgnoreCase(componentInstantiation.getType().getName())) {
+ 				InterfaceList genericInterfaceList = componentDeclaration.getGenericClause().getInterfaceList();
+ 				
+ 				List<InterfaceDeclaration> genericInterfaceDeclarations = new BasicEList<InterfaceDeclaration>();
+ 				genericInterfaceDeclarations.add(genericInterfaceList.getHead());
+ 				genericInterfaceDeclarations.addAll(genericInterfaceList.getTail());
+ 				
+ 				for(InterfaceDeclaration genericInterfaceDeclaration : genericInterfaceDeclarations) {
+ 					identifiers.add(genericInterfaceDeclaration.getIdentifiers().getHead());
+ 					identifiers.addAll(genericInterfaceDeclaration.getIdentifiers().getTail());
+ 				}
+ 			}
+ 		}
+ 		
+ 		return scopeFor(genericIdentifierReference, ref, identifiers, true);
+	}	
+	
 	protected IScope scope_PortIdentifierReference_ref(PortIdentifierReference portIdentifierReference, EReference ref) {
  		Model model = (Model) portIdentifierReference.eResource().getContents().get(0);
  		ComponentInstantiationStatement componentInstantiation = (ComponentInstantiationStatement)portIdentifierReference.eContainer().eContainer().eContainer().eContainer().eContainer();
- 		
+
  		List<ComponentDeclaration> componentDeclarations = EcoreUtil2.getAllContentsOfType(model, ComponentDeclaration.class);
 		List<Identifier> identifiers = new BasicEList<Identifier>();
  		
@@ -258,6 +291,36 @@ public class VhdlScopeProvider extends org.eclipse.xtext.scoping.impl.AbstractDe
  		
  		List<Identifier> plaindentifierDeclarations = EcoreUtil2.getAllContentsOfType(model, Identifier.class);
 		List<Identifier> signalIdentifierDeclarations = new BasicEList<Identifier>();
+		
+		// Handle references to generics
+		if(qualifiedVarRef.eContainer().eContainer().eContainer() instanceof GenericInterfaceDeclaration) {
+			GenericInterfaceDeclaration genericInterfaceDeclaration = (GenericInterfaceDeclaration) qualifiedVarRef.eContainer().eContainer().eContainer();
+			// (1) Handle identifier references to generics from within a component declaration
+			if(genericInterfaceDeclaration.eContainer().eContainer().eContainer() instanceof ComponentDeclaration) {
+				ComponentDeclaration componentDeclaration = (ComponentDeclaration)genericInterfaceDeclaration.eContainer().eContainer().eContainer();
+				ArchitectureDeclaration architectureDeclaration = (ArchitectureDeclaration)componentDeclaration.eContainer();
+				EntityDeclaration entityDeclaration = architectureDeclaration.getEntityRef();
+				// Get generic identifiers from corresponding component declaration
+				List<GenericIdentifier> genericIdentifiers = EcoreUtil2.getAllContentsOfType(componentDeclaration, GenericIdentifier.class);
+				// Get generic identifiers from corresponding entity declaration
+				genericIdentifiers.addAll(EcoreUtil2.getAllContentsOfType(entityDeclaration, GenericIdentifier.class));
+				return scopeFor(qualifiedVarRef, ref, genericIdentifiers, true);
+			}
+		}
+		
+		// (2) Handle identifier references to generics from within a component instantiation
+		if(qualifiedVarRef.eContainer().eContainer().eContainer().eContainer() instanceof GenericAssociationElement) {
+			GenericAssociationElement genericAssociationElement = (GenericAssociationElement)qualifiedVarRef.eContainer().eContainer().eContainer().eContainer();
+			ComponentInstantiationStatement componentInstantiation = (ComponentInstantiationStatement)genericAssociationElement.eContainer().eContainer().eContainer();
+			ComponentDeclaration componentDeclaration = componentInstantiation.getType();
+			ArchitectureDeclaration architectureDeclaration = (ArchitectureDeclaration)componentDeclaration.eContainer();
+			EntityDeclaration entityDeclaration = architectureDeclaration.getEntityRef();
+			// Get generic identifiers from corresponding component declaration
+			List<GenericIdentifier> genericIdentifiers = EcoreUtil2.getAllContentsOfType(componentDeclaration, GenericIdentifier.class);
+			// Get generic identifiers from corresponding entity declaration
+			genericIdentifiers.addAll(EcoreUtil2.getAllContentsOfType(entityDeclaration, GenericIdentifier.class));
+			return scopeFor(qualifiedVarRef, ref, genericIdentifiers, true);
+		}
 		
  		for(Identifier identifier : plaindentifierDeclarations) {
  			if(identifier instanceof PortIdentifier) {
