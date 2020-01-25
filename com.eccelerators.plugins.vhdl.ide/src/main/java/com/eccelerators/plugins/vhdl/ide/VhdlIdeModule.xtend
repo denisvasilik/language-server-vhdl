@@ -3,9 +3,14 @@
  */
 package com.eccelerators.plugins.vhdl.ide
 
+import org.eclipse.xtext.ide.server.symbol.DocumentSymbolService
+import com.eccelerators.plugins.vhdl.ide.server.symbol.VhdlDocumentSymbolService
 
 /**
  * Use this class to register ide components.
  */
 class VhdlIdeModule extends AbstractVhdlIdeModule {
+	def Class<? extends DocumentSymbolService> bindIDocumentSymbolService() {
+		return typeof(VhdlDocumentSymbolService);
+	}
 }

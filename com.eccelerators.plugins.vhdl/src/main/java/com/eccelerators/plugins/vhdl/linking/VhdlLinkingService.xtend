@@ -22,7 +22,8 @@ class VhdlLinkingService extends DefaultLinkingService {
 	//
 	// FIXME: Distinguish between signals, functions, casts, etc.
 	//
-	static final String BUILTIN_TYPE_URI = "com.eccelerators.plugins.vhdl.builtin:/inmemory.vhd";
+	static final String BUILTIN_TYPE_URI = "com.eccelerators.plugins.vhdl:/builtin.vhd";
+	// static final String BUILTIN_TYPE_URI = "platform:/resource/vhdl_test_proj/test.vhd#//@designUnits.0/@libraryUnit";
 	
 	final List<String> _typeNames = createListOfTypeNames();
 	final List<String> _identifierNames = createListOfIdentifierNames();
@@ -281,27 +282,32 @@ class VhdlLinkingService extends DefaultLinkingService {
 	def List<EObject> getBuiltInObjects(EObject context, INode node, List<EObject> objects) {
 		var list = Collections.<EObject>emptyList();
 		val uri = URI.createURI(BUILTIN_TYPE_URI);
-		var resource = context.eResource().getResourceSet().getResource(uri, false);
-
+		
+		var resourceSet = context.eResource().getResourceSet()
+		var resource = resourceSet.getResource(uri, false);
 		if (resource === null) {
-			resource = context.eResource().getResourceSet().createResource(uri);
+			resource = resourceSet.createResource(uri);
 		}
 
-		val token = NodeModelUtils.getTokenText(node);
+		val tokenText = NodeModelUtils.getTokenText(node);
 
 		for(EObject object : objects) {
 			switch object {
 				// FIXME: Maybe TypeIdentifier should inherit from Identifier!!!
 				Identifier : {
-					if (object.name.equalsIgnoreCase(token)) {
-						resource.getContents().add(object);
-						list = Collections.singletonList(object);
+					if (object.name.equalsIgnoreCase(tokenText)) {
+						var identifier = VhdlFactory.eINSTANCE.createIdentifier();
+						identifier.name = tokenText;
+						resource.getContents().add(identifier);
+						list = Collections.singletonList(identifier);
 					}
 				}
 				TypeIdentifier : {
-					if (object.name.equalsIgnoreCase(token)) {
-						resource.getContents().add(object);
-						list = Collections.singletonList(object);
+					if (object.name.equalsIgnoreCase(tokenText)) {
+						var typeIdentifier = VhdlFactory.eINSTANCE.createTypeIdentifier();
+						typeIdentifier.name = tokenText;
+						resource.getContents().add(typeIdentifier);
+						list = Collections.singletonList(typeIdentifier);
 					}
 				}
 			}

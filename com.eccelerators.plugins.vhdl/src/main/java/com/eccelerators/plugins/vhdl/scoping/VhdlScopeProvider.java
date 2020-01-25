@@ -99,9 +99,7 @@ public class VhdlScopeProvider extends org.eclipse.xtext.scoping.impl.AbstractDe
 	
 	protected IScope scope_PackageBody_ref(PackageBody packageBody, EReference ref) {
 		EList<EObject> scope = new BasicEList<EObject>();
-		
 		PackageDeclaration packageDeclaration = packageBody.getName();
-		
 		scope.add(packageDeclaration);
 		return scopeFor(scope, true);
 	}
@@ -126,117 +124,97 @@ public class VhdlScopeProvider extends org.eclipse.xtext.scoping.impl.AbstractDe
 	
 	protected IScope scope_ComponentDeclaration_ref(ComponentDeclaration componentDeclaration, EReference ref) {		
 		EList<EObject> scope = new BasicEList<EObject>();
-		componentDeclaration.setName(componentDeclaration.getEntityRef().getName());
+		EntityDeclaration entityDeclaration = componentDeclaration.getEntityRef();
+		
+		if(entityDeclaration == null) {
+			return IScope.NULLSCOPE;
+		}
+		
+		String entityName = entityDeclaration.getName();
+		componentDeclaration.setName(entityName);
 		scope.add(componentDeclaration);
 		return scopeFor(scope, true);
 	}
 	
 	protected IScope scope_ComponentInstantiationStatement_type(ComponentInstantiationStatement componentInstantiationStatement, EReference ref) {
+		if (!(componentInstantiationStatement.eContainer() instanceof ArchitectureDeclaration)) {
+			return IScope.NULLSCOPE;
+		}
+		
 		ArchitectureDeclaration architectureDeclaration = (ArchitectureDeclaration) componentInstantiationStatement.eContainer();
 		List<ComponentDeclaration> componentDeclarations = EcoreUtil2.getAllContentsOfType(architectureDeclaration, ComponentDeclaration.class);
 		
 		EList<EObject> scope = new BasicEList<EObject>();
 		for(ComponentDeclaration componentDeclaration : componentDeclarations) {
-			componentDeclaration.setName(componentDeclaration.getEntityRef().getName());
+			EntityDeclaration entityDeclaration = componentDeclaration.getEntityRef();
+			
+			if(entityDeclaration == null) {
+				continue;
+			}
+			
+			String entityName = entityDeclaration.getName();
+			componentDeclaration.setName(entityName);
 			scope.add(componentDeclaration);
 		}
 		
 		return scopeFor(scope, true);
 	}
-	
-//	EClass eClass = componentDeclaration.eClass();
-//	final EStructuralFeature result = eClass.getEStructuralFeature("name");
-//	List<INode> nodes = NodeModelUtils.findNodesForFeature(componentDeclaration, result);
-//	
-//	for (INode n : nodes) {
-//		System.out.println(n.getText());
-//	}
-	
-//	ComponentDeclaration myComponentDeclaration = VhdlFactory.eINSTANCE.createComponentDeclaration();
-//	componentDeclaration.setName(componentDeclaration.getName());
-//	scope.add(myComponentDeclaration.getName());
-	
-//	protected IScope scope_ProcedureDeclaration_name(ProcedureDeclaration procedureDeclaration, EReference ref) {
-//		Model model = (Model) procedureDeclaration.eResource().getContents().get(0);
-//		List<ProcedureSpecification> procedureSpecifications = EcoreUtil2.getAllContentsOfType(model, ProcedureSpecification.class);
-//		EList<EObject> scope = new BasicEList<EObject>();
-//		
-//		for(ProcedureSpecification procedureSpecification : procedureSpecifications) {
-//			scope.add(procedureSpecification.getName());
-//		}
-//		
-//		return scopeFor(scope, true);
-//	}
-	
-	
-//	NOTE: Not used because a function can also be local meaning that 
-//	      there is no cross-reference to a function signature within a package.
-//	protected IScope scope_FunctionStringDeclaration_name(FunctionStringDeclaration functionDeclaration, EReference ref) {
-//		PackageBody packageBody = (PackageBody) functionDeclaration.eContainer();
-//		PackageDeclaration packageDeclaration = packageBody.getName();
-//		List<FunctionIdentifier> functionIdentifiers = EcoreUtil2.getAllContentsOfType(packageDeclaration, FunctionIdentifier.class);
-//		return scopeFor(functionIdentifiers, true);
-//	}
-	
-	
-//  NOTE: Not used because a function can also be local meaning that 
-//        there is no cross-reference to a function signature within a package.
-//	protected IScope scope_FunctionIdentifierDeclaration_name(FunctionIdentifierDeclaration functionDeclaration, EReference ref) {
-//		PackageBody packageBody = (PackageBody) functionDeclaration.eContainer();
-//		PackageDeclaration packageDeclaration = packageBody.getName();
-//		List<FunctionIdentifier> functionIdentifiers = EcoreUtil2.getAllContentsOfType(packageDeclaration, FunctionIdentifier.class);
-//		return scopeFor(functionIdentifiers, true);
-//	}
-	
+
 	protected IScope scope_QualifiedIdentifierReference_field(QualifiedIdentifierReference qualifiedIdentifierreference, EReference ref) {
 		IdentifierReference object = qualifiedIdentifierreference.getObject();
 
-		if( object instanceof IdentifierReference ) {
-			IdentifierReference identifierReference = (IdentifierReference) object;
-			Identifier signalIdentifier = identifierReference.getRef();
-			EObject container = signalIdentifier.eContainer();
-			
-			if(container == null) 
-				return IScope.NULLSCOPE;
-			
-			DeclaredIdentifiers declaredIdentifiers = (DeclaredIdentifiers) container;
-			EObject declarationContainer = declaredIdentifiers.eContainer();
-			
-			if( declarationContainer == null )
-				return IScope.NULLSCOPE;
-			
-			Declaration declaration = (Declaration) declarationContainer;
-			ParameterizedTypeIdentifierReference typeRef = declaration.getType();
-			TypeIdentifier typeIdentifier = typeRef.getRef();
-			
-			if(typeIdentifier.eContainer() == null)
-				return IScope.NULLSCOPE;
-			
-			if(typeIdentifier.eContainer() instanceof FullTypeDeclaration) {
-				FullTypeDeclaration fullTypeDeclaration = (FullTypeDeclaration) typeIdentifier.eContainer();
-				
-				String realName = fullTypeDeclaration.getName().getName();
-				
-				List<Identifier> identifierDeclarations = EcoreUtil2.getAllContentsOfType(fullTypeDeclaration, Identifier.class);
-				List<SignalOrConstantIdentifier> signalIdentifierDeclarations = new BasicEList<SignalOrConstantIdentifier>();
-				
-				// Filter for SignalIdentifier
-		 		for(Identifier identifier : identifierDeclarations) {
-		 			if(identifier instanceof SignalOrConstantIdentifier) {
-		 				signalIdentifierDeclarations.add((SignalOrConstantIdentifier) identifier);
-		 			}
-		 		}
-				
-		 		return scopeFor(signalIdentifierDeclarations, true);
-			} else {
-				return IScope.NULLSCOPE;
-			}
+		if(!(object instanceof IdentifierReference)) {
+			return IScope.NULLSCOPE;
+		}
+
+		IdentifierReference identifierReference = (IdentifierReference) object;
+		Identifier signalIdentifier = identifierReference.getRef();
+		
+		if(signalIdentifier == null ||
+		   signalIdentifier.eContainer() == null || 
+		 !(signalIdentifier.eContainer() instanceof DeclaredIdentifiers)) { 
+			return IScope.NULLSCOPE;
 		}
 		
-		return IScope.NULLSCOPE;
+		DeclaredIdentifiers declaredIdentifiers = (DeclaredIdentifiers) signalIdentifier.eContainer();
+		
+		if(declaredIdentifiers.eContainer() == null ||
+		  !(declaredIdentifiers.eContainer() instanceof Declaration)) {
+			return IScope.NULLSCOPE;
+		}
+		
+		Declaration declaration = (Declaration) declaredIdentifiers.eContainer();
+		ParameterizedTypeIdentifierReference typeRef = declaration.getType();
+		
+		if(typeRef == null ||
+		   typeRef.getRef().eContainer() == null ||
+		 !(typeRef.getRef().eContainer() instanceof FullTypeDeclaration)) {
+			return IScope.NULLSCOPE;
+		}
+		
+		FullTypeDeclaration fullTypeDeclaration = (FullTypeDeclaration) typeRef.getRef().eContainer();
+
+		List<Identifier> identifierDeclarations = EcoreUtil2.getAllContentsOfType(fullTypeDeclaration, Identifier.class);
+		List<SignalOrConstantIdentifier> signalIdentifierDeclarations = new BasicEList<SignalOrConstantIdentifier>();
+		
+		// Filter for SignalIdentifier
+ 		for(Identifier identifier : identifierDeclarations) {
+ 			if(identifier instanceof SignalOrConstantIdentifier) {
+ 				signalIdentifierDeclarations.add((SignalOrConstantIdentifier) identifier);
+ 			}
+ 		}
+		
+ 		return scopeFor(signalIdentifierDeclarations, true);
 	}
 	
 	protected IScope scope_GenericIdentifierReference_ref(GenericIdentifierReference genericIdentifierReference, EReference ref) {
+ 		if (genericIdentifierReference.eResource() == null ||
+ 			genericIdentifierReference.eResource().getContents() == null ||
+ 			genericIdentifierReference.eResource().getContents().size() <= 0 ||
+ 	 	  !(genericIdentifierReference.eResource().getContents().get(0) instanceof Model)) {
+ 	 		return IScope.NULLSCOPE;
+ 	 	}
+ 		
  		Model model = (Model) genericIdentifierReference.eResource().getContents().get(0);
  		ComponentInstantiationStatement componentInstantiation = (ComponentInstantiationStatement)genericIdentifierReference.eContainer().eContainer().eContainer().eContainer().eContainer();
  		
@@ -259,9 +237,16 @@ public class VhdlScopeProvider extends org.eclipse.xtext.scoping.impl.AbstractDe
  		}
  		
  		return scopeFor(genericIdentifierReference, ref, identifiers, true);
-	}	
+	}
 	
 	protected IScope scope_PortIdentifierReference_ref(PortIdentifierReference portIdentifierReference, EReference ref) {
+ 		if (portIdentifierReference.eResource() == null ||
+ 			portIdentifierReference.eResource().getContents() == null ||
+ 			portIdentifierReference.eResource().getContents().size() <= 0 ||
+ 	 	  !(portIdentifierReference.eResource().getContents().get(0) instanceof Model)) {
+ 	 		return IScope.NULLSCOPE;
+ 	 	}
+ 		
  		Model model = (Model) portIdentifierReference.eResource().getContents().get(0);
  		ComponentInstantiationStatement componentInstantiation = (ComponentInstantiationStatement)portIdentifierReference.eContainer().eContainer().eContainer().eContainer().eContainer();
 
@@ -287,6 +272,13 @@ public class VhdlScopeProvider extends org.eclipse.xtext.scoping.impl.AbstractDe
 	}	
 	
 	protected IScope scope_IdentifierReference_ref(IdentifierReference qualifiedVarRef, EReference ref) {
+ 		if (qualifiedVarRef.eResource() == null ||
+ 			qualifiedVarRef.eResource().getContents() == null ||
+ 			qualifiedVarRef.eResource().getContents().size() <= 0 ||
+ 	 	  !(qualifiedVarRef.eResource().getContents().get(0) instanceof Model)) {
+ 	 		return IScope.NULLSCOPE;
+ 	 	}
+		
  		Model model = (Model) qualifiedVarRef.eResource().getContents().get(0);
  		
  		List<Identifier> plaindentifierDeclarations = EcoreUtil2.getAllContentsOfType(model, Identifier.class);
@@ -337,7 +329,14 @@ public class VhdlScopeProvider extends org.eclipse.xtext.scoping.impl.AbstractDe
 	}
 
 	protected IScope scope_TypeIdentifierReference_ref(TypeIdentifierReference typeIdentifierReference, EReference ref) {
- 		Model model = (Model) typeIdentifierReference.eResource().getContents().get(0);
+ 		if (typeIdentifierReference.eResource() == null ||
+ 			typeIdentifierReference.eResource().getContents() == null ||
+ 			typeIdentifierReference.eResource().getContents().size() <= 0 ||
+ 		  !(typeIdentifierReference.eResource().getContents().get(0) instanceof Model)) {
+ 			return IScope.NULLSCOPE;
+ 		}
+		
+		Model model = (Model) typeIdentifierReference.eResource().getContents().get(0);
  		List<TypeIdentifier> identifierDeclarations = EcoreUtil2.getAllContentsOfType(model, TypeIdentifier.class);
  		EList<TypeIdentifier> typeIdentifierDeclarations = new BasicEList<TypeIdentifier>();
 
@@ -349,7 +348,7 @@ public class VhdlScopeProvider extends org.eclipse.xtext.scoping.impl.AbstractDe
  		
  		return scopeFor(typeIdentifierReference, ref, typeIdentifierDeclarations, true);
 	}
-	          
+
     /***
      *  Makes cross-references through scopes case-insensitive and inherits parent scope! Performance Hit!
      */
