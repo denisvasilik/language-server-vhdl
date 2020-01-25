@@ -44,79 +44,64 @@ class VhdlValidator extends AbstractVhdlValidator {
 		   interfaceDeclaration.eContainer().eContainer() instanceof ProcedureDeclaration ) {
 		   	return;
 		}
-		
-		if(interfaceDeclaration.eContainer().eContainer().eContainer() instanceof ComponentDeclaration) {
-			val interfaceList = interfaceDeclaration.eContainer() as InterfaceList;
-			val interfaceDeclarations = new ArrayList<InterfaceDeclaration>();
-			
-			interfaceDeclarations.add(interfaceList.head);
-			interfaceDeclarations.addAll(interfaceList.tail);
-			
-			val thisIdentifiers = new ArrayList<Identifier>();
-			val otherIdentifiers = new ArrayList<Identifier>();
-			
-			thisIdentifiers.add(interfaceDeclaration.identifiers.head);
-			thisIdentifiers.addAll(interfaceDeclaration.identifiers.tail);
-			
-			for(InterfaceDeclaration otherInterfaceDeclaration : interfaceDeclarations) {
-				otherIdentifiers.add(otherInterfaceDeclaration.identifiers.head);
-				otherIdentifiers.addAll(otherInterfaceDeclaration.identifiers.tail);
-			}
-	
-			otherIdentifiers.removeAll(thisIdentifiers);
-			
-			for(Identifier thisIdentifier : thisIdentifiers) {
-				for(Identifier otherIdentifier : otherIdentifiers) {
-					if(thisIdentifier.name.equals(otherIdentifier.name)) {
-						error('Signal ' + thisIdentifier.name + ' is declared multiple times', thisIdentifier, null);
-						error('Signal ' + otherIdentifier.name + ' is declared multiple times', otherIdentifier, null);
-					}
-				}
-			}
-		}
-		
+
 		if(interfaceDeclaration.eContainer().eContainer().eContainer() instanceof EntityDeclaration) {
 			val model = interfaceDeclaration.eResource().getContents().get(0) as Model;
-			val interfaceDeclarations = EcoreUtil2.getAllContentsOfType(model, typeof(InterfaceDeclaration));
-			val signalDeclarations = EcoreUtil2.getAllContentsOfType(model, typeof(SignalDeclaration));
+			val entity = interfaceDeclaration.eContainer().eContainer().eContainer();
+			val architectureDeclarations = EcoreUtil2.getAllContentsOfType(model, typeof(ArchitectureDeclaration));
 			
-			val thisIdentifiers = new ArrayList<Identifier>();
-			val otherIdentifiers = new ArrayList<Identifier>();
-			
-			thisIdentifiers.add(interfaceDeclaration.identifiers.head);
-			thisIdentifiers.addAll(interfaceDeclaration.identifiers.tail);
-			
-			for(InterfaceDeclaration otherInterfaceDeclaration : interfaceDeclarations) {
-				if(otherInterfaceDeclaration.eContainer().eContainer().eContainer() instanceof EntityDeclaration) {
-					otherIdentifiers.add(otherInterfaceDeclaration.identifiers.head);
-					otherIdentifiers.addAll(otherInterfaceDeclaration.identifiers.tail);
+			architectureDeclarations
+				.filter[architecture| architecture.entityRef == entity]			
+				.forEach[architecture|
+				if(architecture === null) {
+					return;
 				}
-			}
-	
-			for(SignalDeclaration otherSignalDeclaration : signalDeclarations) {
-				otherIdentifiers.add(otherSignalDeclaration.identifiers.head);
-				otherIdentifiers.addAll(otherSignalDeclaration.identifiers.tail);
-			}
-			
-			otherIdentifiers.removeAll(thisIdentifiers);
-			
-			for(Identifier thisIdentifier : thisIdentifiers) {
-				for(Identifier otherIdentifier : otherIdentifiers) {
-					if(thisIdentifier.name.equals(otherIdentifier.name)) {
-						error('Signal ' + thisIdentifier.name + ' is declared multiple times', thisIdentifier, null);
-						error('Signal ' + otherIdentifier.name + ' is declared multiple times', otherIdentifier, null);
+				
+				val interfaceDeclarations = EcoreUtil2.getAllContentsOfType(entity, typeof(InterfaceDeclaration));
+				val signalDeclarations = EcoreUtil2.getAllContentsOfType(architecture, typeof(SignalDeclaration));
+				
+				val thisIdentifiers = new ArrayList<Identifier>();
+				val otherIdentifiers = new ArrayList<Identifier>();
+				
+				thisIdentifiers.add(interfaceDeclaration.identifiers.head);
+				thisIdentifiers.addAll(interfaceDeclaration.identifiers.tail);
+				
+				for(InterfaceDeclaration otherInterfaceDeclaration : interfaceDeclarations) {
+					if(otherInterfaceDeclaration.eContainer().eContainer().eContainer() instanceof EntityDeclaration) {
+						otherIdentifiers.add(otherInterfaceDeclaration.identifiers.head);
+						otherIdentifiers.addAll(otherInterfaceDeclaration.identifiers.tail);
 					}
 				}
-			}
+		
+				for(SignalDeclaration otherSignalDeclaration : signalDeclarations) {
+					otherIdentifiers.add(otherSignalDeclaration.identifiers.head);
+					otherIdentifiers.addAll(otherSignalDeclaration.identifiers.tail);
+				}
+				
+				otherIdentifiers.removeAll(thisIdentifiers);
+				
+				for(Identifier thisIdentifier : thisIdentifiers) {
+					for(Identifier otherIdentifier : otherIdentifiers) {
+						if(thisIdentifier.name.equals(otherIdentifier.name)) {
+							error('Signal ' + thisIdentifier.name + ' is declared multiple times', thisIdentifier, null);
+							error('Signal ' + otherIdentifier.name + ' is declared multiple times', otherIdentifier, null);
+						}
+					}
+				}
+			];
 		}
 	}
 
 	@Check
 	def checkForMultipleSignalDeclaration(SignalDeclaration signalDeclaration) {
-		val model = signalDeclaration.eResource().getContents().get(0) as Model;
-		val interfaceDeclarations = EcoreUtil2.getAllContentsOfType(model, typeof(InterfaceDeclaration));
-		val signalDeclarations = EcoreUtil2.getAllContentsOfType(model, typeof(SignalDeclaration));
-		
+		val architecture = signalDeclaration.eContainer() as ArchitectureDeclaration;
+		val entity = architecture.entityRef;
+
+		if(entity === null) return;
+
+		val interfaceDeclarations = EcoreUtil2.getAllContentsOfType(entity, typeof(InterfaceDeclaration));
+		val signalDeclarations = EcoreUtil2.getAllContentsOfType(architecture, typeof(SignalDeclaration));
+
 		val thisIdentifiers = new ArrayList<Identifier>();
 		val otherIdentifiers = new ArrayList<Identifier>();
 		
