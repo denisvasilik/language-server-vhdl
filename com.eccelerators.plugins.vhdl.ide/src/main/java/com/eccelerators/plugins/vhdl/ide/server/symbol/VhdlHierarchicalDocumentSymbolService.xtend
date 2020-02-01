@@ -45,12 +45,15 @@ class VhdlHierarchicalDocumentSymbolService extends HierarchicalDocumentSymbolSe
 						rootSymbols.add(symbol);
 					} else if(object instanceof ArchitectureDeclaration) {
 						architectureParentSymbol = symbolMapper.toDocumentSymbol(object);
-						entityParentSymbol.children.add(architectureParentSymbol) 
+						if (entityParentSymbol !== null)
+							entityParentSymbol.children.add(architectureParentSymbol) 
 					} else if(object instanceof ComponentDeclaration) {
 						componentParentSymbol = symbol
-						architectureParentSymbol.children.add(symbol);
+						if (architectureParentSymbol !== null)
+							architectureParentSymbol.children.add(symbol);
 					} else if(object instanceof ComponentInstantiationStatement) {
-						componentParentSymbol.children.add(symbol)
+						if (componentParentSymbol !== null)
+							componentParentSymbol.children.add(symbol)
 					}
 				}
 			}
@@ -63,6 +66,10 @@ class VhdlHierarchicalDocumentSymbolService extends HierarchicalDocumentSymbolSe
 		
 		if (module instanceof Model) {
 			val allStatments = EcoreUtil.getAllProperContents(resource, true);
+			
+			if (allStatments === null) 
+				return emptyList.iterator;
+			
 			return allStatments.filter[statement|
 			      return statement instanceof EntityDeclaration || 
 			      		 statement instanceof ArchitectureDeclaration ||
