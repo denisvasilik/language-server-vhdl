@@ -3,30 +3,29 @@
  */
 package com.eccelerators.plugins.vhdl.validation
 
-import org.eclipse.xtext.validation.Check
-import com.eccelerators.plugins.vhdl.vhdl.SignalDeclaration
-import com.eccelerators.plugins.vhdl.vhdl.Identifier
-import org.eclipse.xtext.EcoreUtil2
-import com.eccelerators.plugins.vhdl.vhdl.Model
-import com.eccelerators.plugins.vhdl.vhdl.ProcessStatement
-import com.eccelerators.plugins.vhdl.vhdl.IdentifierReference
-import java.util.List
 import com.eccelerators.plugins.vhdl.vhdl.ArchitectureDeclaration
-import com.eccelerators.plugins.vhdl.vhdl.SignalAssignmentStatement
-import com.google.common.collect.HashMultimap
-import com.eccelerators.plugins.vhdl.vhdl.InterfaceDeclaration
-import com.eccelerators.plugins.vhdl.vhdl.ConditionalSignalAssignmentSatement
-import com.eccelerators.plugins.vhdl.vhdl.QualifiedIdentifierReference
 import com.eccelerators.plugins.vhdl.vhdl.ComponentDeclaration
 import com.eccelerators.plugins.vhdl.vhdl.ComponentInstantiationStatement
-import java.util.ArrayList
-import com.eccelerators.plugins.vhdl.vhdl.GenericClause
-import org.eclipse.emf.ecore.EObject
+import com.eccelerators.plugins.vhdl.vhdl.ConditionalSignalAssignmentSatement
 import com.eccelerators.plugins.vhdl.vhdl.EntityDeclaration
+import com.eccelerators.plugins.vhdl.vhdl.GenericClause
+import com.eccelerators.plugins.vhdl.vhdl.Identifier
+import com.eccelerators.plugins.vhdl.vhdl.IdentifierReference
+import com.eccelerators.plugins.vhdl.vhdl.InterfaceDeclaration
+import com.eccelerators.plugins.vhdl.vhdl.Model
 import com.eccelerators.plugins.vhdl.vhdl.PortClause
-import com.eccelerators.plugins.vhdl.vhdl.InterfaceList
-import com.eccelerators.plugins.vhdl.vhdl.ProcedureSpecification
 import com.eccelerators.plugins.vhdl.vhdl.ProcedureDeclaration
+import com.eccelerators.plugins.vhdl.vhdl.ProcedureSpecification
+import com.eccelerators.plugins.vhdl.vhdl.ProcessStatement
+import com.eccelerators.plugins.vhdl.vhdl.QualifiedIdentifierReference
+import com.eccelerators.plugins.vhdl.vhdl.SignalAssignmentStatement
+import com.eccelerators.plugins.vhdl.vhdl.SignalDeclaration
+import com.google.common.collect.HashMultimap
+import java.util.ArrayList
+import java.util.List
+import org.eclipse.emf.ecore.EObject
+import org.eclipse.xtext.EcoreUtil2
+import org.eclipse.xtext.validation.Check
 
 /**
  * This class contains custom validation rules. 
@@ -367,23 +366,6 @@ class VhdlValidator extends AbstractVhdlValidator {
 		return identifierRefs; 
 	}
 
-	def List<InterfaceDeclaration> getPortSignals(EObject eObject) {
-		val model = eObject.eResource().getContents().get(0) as Model;
-		val retVal = new ArrayList<InterfaceDeclaration>();
-		
-		if(model.designUnits.length > 0 &&
-		   model.designUnits.get(0).libraryUnit instanceof EntityDeclaration) {
-			val entityDeclaration = model.designUnits.get(0).libraryUnit as EntityDeclaration;
-			retVal.add(entityDeclaration.portClause.interfaceList.head)
-			retVal.addAll(entityDeclaration.portClause.interfaceList.tail)
-			return retVal;
-		}
-		return retVal;
-	}
-
-	def getInterfaceDeclarations() {
-	}
-
 	/**
 	 * Checks for signals that are consumed but never have got assigned a value to.
 	 */
@@ -441,7 +423,8 @@ class VhdlValidator extends AbstractVhdlValidator {
 
 	@Check
 	def checkPortSignalMode(InterfaceDeclaration interfaceDeclaration) {
-		if(interfaceDeclaration.eContainer().eContainer() instanceof PortClause == false) {
+		var portClause = EcoreUtil2.getContainerOfType(interfaceDeclaration, typeof(PortClause));
+		if(portClause === null) {
 			return;
 		}
 		
@@ -452,7 +435,13 @@ class VhdlValidator extends AbstractVhdlValidator {
 
 	@Check
 	def checkInvalidSignalAssignment(SignalAssignmentStatement signalAssignmentStatement) {
-		val interfaceDeclarations = getPortSignals(signalAssignmentStatement);
+		var architectureDeclaration = EcoreUtil2.getContainerOfType(signalAssignmentStatement, typeof(ArchitectureDeclaration));
+		if(architectureDeclaration === null) {
+			return;
+		}
+		
+		var entityDeclaration = architectureDeclaration.getEntityRef()
+		var interfaceDeclarations = EcoreUtil2.getAllContentsOfType(entityDeclaration, typeof(InterfaceDeclaration));
 
 		interfaceDeclarations.forEach [interfaceDeclaration |
 			if (interfaceDeclaration.mode.name.equalsIgnoreCase("out") ||
@@ -476,7 +465,13 @@ class VhdlValidator extends AbstractVhdlValidator {
 	
 	@Check
 	def checkInvalidSignalAssignment(ConditionalSignalAssignmentSatement conditionalSignalAssignmentSatement) {
-		val interfaceDeclarations = getPortSignals(conditionalSignalAssignmentSatement);
+		var architectureDeclaration = EcoreUtil2.getContainerOfType(conditionalSignalAssignmentSatement, typeof(ArchitectureDeclaration));
+		if(architectureDeclaration === null) {
+			return;
+		}
+		
+		var entityDeclaration = architectureDeclaration.getEntityRef()
+		var interfaceDeclarations = EcoreUtil2.getAllContentsOfType(entityDeclaration, typeof(InterfaceDeclaration));
 
 		interfaceDeclarations.forEach [interfaceDeclaration |
 			if (interfaceDeclaration.mode.name.equalsIgnoreCase("out") ||
@@ -497,12 +492,4 @@ class VhdlValidator extends AbstractVhdlValidator {
 			}
 		]
 	}
-
-//	@Check
-//	def noAssignment(ArchitectureDeclaration architectureDeclaration) {
-//	}
-//
-//	@Check
-//	def checkSignalInitialization(ProcessStatement processStatement) {
-//	}
 }
