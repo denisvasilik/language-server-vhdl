@@ -7,47 +7,34 @@
  *******************************************************************************/
 package com.eccelerators.plugins.vhdl.ide.server.symbol
 
-import org.eclipse.xtext.ide.server.symbol.DocumentSymbolService
-
-import com.google.common.graph.Traverser
 import com.google.inject.Inject
-import com.google.inject.Provider
-import com.google.inject.Singleton
-import java.util.List
 import org.eclipse.emf.common.util.URI
-import org.eclipse.emf.ecore.EClass
 import org.eclipse.emf.ecore.EObject
-import org.eclipse.lsp4j.DocumentSymbol
-import org.eclipse.lsp4j.DocumentSymbolParams
-import org.eclipse.lsp4j.Location
-import org.eclipse.lsp4j.ReferenceParams
-import org.eclipse.lsp4j.SymbolInformation
-import org.eclipse.lsp4j.SymbolKind
-import org.eclipse.lsp4j.TextDocumentPositionParams
-import org.eclipse.lsp4j.jsonrpc.messages.Either
-import org.eclipse.xtext.findReferences.IReferenceFinder
 import org.eclipse.xtext.findReferences.IReferenceFinder.IResourceAccess
-import org.eclipse.xtext.findReferences.ReferenceAcceptor
-import org.eclipse.xtext.findReferences.TargetURICollector
-import org.eclipse.xtext.findReferences.TargetURIs
-import org.eclipse.xtext.ide.server.Document
 import org.eclipse.xtext.ide.server.DocumentExtensions
-import org.eclipse.xtext.ide.server.UriExtensions
-import org.eclipse.xtext.ide.util.CancelIndicatorProgressMonitor
-import org.eclipse.xtext.naming.IQualifiedNameProvider
-import org.eclipse.xtext.naming.QualifiedName
+import org.eclipse.xtext.ide.server.symbol.DocumentSymbolService
 import org.eclipse.xtext.resource.EObjectAtOffsetHelper
-import org.eclipse.xtext.resource.IEObjectDescription
-import org.eclipse.xtext.resource.IResourceDescription
-import org.eclipse.xtext.resource.IResourceDescriptions
-import org.eclipse.xtext.resource.IResourceServiceProvider
 import org.eclipse.xtext.resource.XtextResource
-import org.eclipse.xtext.service.OperationCanceledManager
 import org.eclipse.xtext.util.CancelIndicator
+import org.eclipse.xtext.util.TextRegion
 
 class VhdlDocumentSymbolService extends DocumentSymbolService {
 	
-	protected def override void doRead(IResourceAccess resourceAccess, URI objectURI, (EObject)=>void acceptor) {
+	@Inject extension DocumentExtensions 
+	@Inject EObjectAtOffsetHelper helper
+	
+	override getDefinitions(XtextResource resource, int offset, IResourceAccess resourceAccess, CancelIndicator cancelIndicator) {
+		val node = helper.getCrossReferenceNode(resource, new TextRegion(offset,0))
+		if (node !== null) {
+			val element = helper.getCrossReferencedElement(node)
+			if (element !== null) {
+				return #[element.newFullLocation]
+			}
+		}
+		return emptyList
+	}
+	
+	protected override void doRead(IResourceAccess resourceAccess, URI objectURI, (EObject)=>void acceptor) {
 		if(objectURI.toString().contains("com.eccelerators.plugins.vhdl")) {
 			return;
 		}

@@ -5,6 +5,12 @@ package com.eccelerators.plugins.vhdl.ide
 
 import org.eclipse.xtext.ide.server.symbol.DocumentSymbolService
 import com.eccelerators.plugins.vhdl.ide.server.symbol.VhdlDocumentSymbolService
+import org.eclipse.xtext.ide.server.symbol.HierarchicalDocumentSymbolService
+import com.eccelerators.plugins.vhdl.ide.server.symbol.VhdlHierarchicalDocumentSymbolService
+import org.eclipse.xtext.ide.server.symbol.DocumentSymbolMapper.DocumentSymbolNameProvider
+import com.eccelerators.plugins.vhdl.ide.server.symbol.VhdlDocumentSymbolNameProvider
+import org.eclipse.xtext.ide.server.symbol.DocumentSymbolMapper.DocumentSymbolKindProvider
+import com.eccelerators.plugins.vhdl.ide.server.symbol.VhdlDocumentSymbolKindProvider
 
 /**
  * Use this class to register ide components.
@@ -12,5 +18,17 @@ import com.eccelerators.plugins.vhdl.ide.server.symbol.VhdlDocumentSymbolService
 class VhdlIdeModule extends AbstractVhdlIdeModule {
 	def Class<? extends DocumentSymbolService> bindIDocumentSymbolService() {
 		return typeof(VhdlDocumentSymbolService);
+	}
+
+	def Class<? extends HierarchicalDocumentSymbolService> bindIHierarchicalDocumentSymbolService() {
+		return typeof(VhdlHierarchicalDocumentSymbolService);
+	}
+	
+	def Class<? extends DocumentSymbolNameProvider> bindIDocumentSymbolNameProvider() {
+		return typeof(VhdlDocumentSymbolNameProvider);
+	}
+	
+	def Class<? extends DocumentSymbolKindProvider> bindIDocumentSymbolKindProvider() {
+		return typeof(VhdlDocumentSymbolKindProvider);
 	}
 }
