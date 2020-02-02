@@ -46,7 +46,7 @@ ArchitectureDeclaration:
 				| ConstantDeclaration
 				| ComponentDeclaration
 //				| ProcedureSpecification
-//				| FunctionDeclaration 
+				| FunctionSpecification 
 				| AttributeDeclaration
 				| AttributeSpecification
 				| TypeDeclaration
@@ -69,6 +69,7 @@ PackageBody:
 
 PackageBodyDeclaration returns PackageBodyDeclaration:
 	ProcedureDeclaration
+	| FunctionDeclaration
 ;
 
 PackageDeclaration:
@@ -79,6 +80,9 @@ PackageDeclaration:
 			| ComponentDeclaration
 			| SingleIdentifierDeclaration
 			| ProcedureSpecification
+			| FileDeclaration
+			| SubtypeDeclaration
+			| FunctionSpecification
 		)*
 	'end' 'package'? ref=[PackageDeclaration | ID]? ';'
 ;
@@ -99,16 +103,24 @@ TypeDeclaration returns Declaration:
 
 IncompleteTypeDeclaration returns Declaration:
 	{IncompleteTypeDeclaration}
-	'type' name=TypeIdentifier
+	'type' name=TypeIdentifier ';'
 ;
 
 FullTypeDeclaration:
 	ScalarTypeDefinition
 	| EnumerationTypeDefinition		
 	| CompositeTypeDefinition
-	//| AccessTypeDefinition
+	| AccessTypeDefinition
 	//| FileTypeDefinition	
 	//| ProtectedTypeDefinition
+;
+
+//
+// 5.4.1
+//
+AccessTypeDefinition returns AccessTypeDefinition:
+	{AccessTypeDefinition}
+	'type' name=AccessTypeIdentifier 'is' 'access' type=ParameterizedTypeIdentifierReference ';'
 ;
 
 ScalarTypeDefinition returns ScalarTypeDefinition:
@@ -247,19 +259,45 @@ GenerationScheme:
 ProcessStatement:
 	{ProcessStatement}
 	( name=ID ':' )?
-	'process' (sensitivityList=SensitivityList)? 'is'?
+	'process' sensitivityList=ProcessSensitivityList? 'is'?
 	 	items += ProcessDeclarativeItem*
 	'begin'
 		statements += SequentialStatement*
 	'end' 'process' ref=[ProcessStatement | ID]? ';'
 ;
 
+//
+// 11.3
+//
+ProcessSensitivityList:
+	{ProcessSensitivityList}
+	'(' ('all' | sensitivityList=SensitivityList) ')'
+;
+
+//
+// 4.2.1
+//
+FunctionSpecification:
+	('pure' | 'impure')? 
+	'function' name=FunctionIdentifier ( '(' interfaceList=InterfaceList ')' )? 
+	'return' type=TypeIdentifierReference ';'
+;
+
+FunctionDeclaration:
+	'function' name=FunctionIdentifier 'parameter'? ( '(' interfaceList=InterfaceList ')' )?
+	'is'
+		declarations += MultiIdentifierDeclaration*
+	'begin'
+		statements += SequentialStatement*
+	'end' 'function'? ref=[FunctionIdentifier | ID]? ';'
+;
+
 ProcedureSpecification:
-	'procedure' name=ProcedureIdentifier ( '(' interfaceList=InterfaceList ')' )? ';'
+	'procedure' name=ProcedureIdentifier 'parameter'? ( '(' interfaceList=InterfaceList ')' )? ';'
 ;
 
 ProcedureDeclaration:
-	'procedure' name=ProcedurePlainIdentifier ( '(' interfaceList=InterfaceList ')' )?
+	'procedure' name=ProcedurePlainIdentifier 'parameter'? ( '(' interfaceList=InterfaceList ')' )?
 	'is'
 		declarations += MultiIdentifierDeclaration*
 	'begin'
@@ -422,9 +460,12 @@ SensitivityClause:
 	'on' list=SensitivityList
 ;
 
+//
+// 10.2
+//
 SensitivityList:
-	'(' head=QualifiedIdentifierReference (',' tail+=QualifiedIdentifierReference )* ')'
-; 
+	head=QualifiedIdentifierReference (',' tail+=QualifiedIdentifierReference )*
+;
  
 ConditionClause:
 	'until' condition=Expression
@@ -624,6 +665,11 @@ LibraryIdentifier returns Identifier:
 	name=('std' | 'ieee' | ID)
 ;
 
+FileIdentifier returns Identifier:
+	{FileIdentifier}
+	name=ID
+;
+
 VariableIdentifier returns Identifier:
 	{VariableIdentifier}
 	name=ID
@@ -654,6 +700,11 @@ ScalarTypeIdentifier returns TypeIdentifier:
 	name=ID
 ;
 
+AccessTypeIdentifier returns TypeIdentifier:
+	{AccessTypeIdentifier}
+	name=ID
+;
+
 EntityIdentifier returns EntityIdentifier:
 	{EntityIdentifier}
 	name=ID
@@ -661,6 +712,11 @@ EntityIdentifier returns EntityIdentifier:
 
 ComponentIdentifier returns EntityIdentifier:
 	{ComponentIdentifier}
+	name=ID
+;
+
+FunctionIdentifier returns FunctionIdentifier:
+	{FunctionIdentifier}
 	name=ID
 ;
 
@@ -718,9 +774,8 @@ InterfaceList:
 InterfaceDeclaration returns InterfaceDeclaration:
 	SignalInterfaceDeclaration
 	| ConstantInterfaceDeclaration
-	//
-	// FIXME: VariableInterfaceDeclaration | FileInterfaceDeclaration
-	//
+	| VariableInterfaceDeclaration 
+	// | FileInterfaceDeclaration
 ;
 
 SignalInterfaceDeclaration returns SignalInterfaceDeclaration:
@@ -728,13 +783,27 @@ SignalInterfaceDeclaration returns SignalInterfaceDeclaration:
 	'signal'? identifiers=DeclaredSignalIdentifiers ':' mode=Mode? type=ParameterizedTypeIdentifierReference 'bus'? ( ':=' expression=Expression )?
 ;
 
+VariableInterfaceDeclaration returns VariableInterfaceDeclaration:
+	{VariableInterfaceDeclaration}
+	'variable' identifiers=DeclaredVariableIdentifiers ':' mode=Mode? type=ParameterizedTypeIdentifierReference ( ':=' expression=Expression )?
+;
+
 ConstantInterfaceDeclaration returns ConstantInterfaceDeclaration:
 	{ConstantInterfaceDeclaration}
 	'constant' identifiers=DeclaredConstantIdentifiers ':' mode=Mode? type=ParameterizedTypeIdentifierReference ( ':=' expression=Expression )?
 ;
 
+//
+// 6.4.2.5
+//
+// TODO: Add file_open_information
+FileInterfaceDeclaration returns FileInterfaceDeclaration:
+	{FileInterfaceDeclaration}
+	'file' identifiers=DeclaredFileIdentifiers ':' type=ParameterizedTypeIdentifierReference
+;
+
 DeclaredGenericIdentifiers returns DeclaredIdentifiers:
-	{DeclaredPortIdentifiers}
+	{DeclaredGenericIdentifiers}
 	head=GenericIdentifier ( ',' tail+=GenericIdentifier )*
 ;
 
@@ -757,6 +826,12 @@ DeclaredVariableIdentifiers returns DeclaredIdentifiers:
 	{DeclaredVariableIdentifiers}
 	head=VariableIdentifier ( ',' tail+=VariableIdentifier )*
 ;
+
+DeclaredFileIdentifiers returns DeclaredIdentifiers:
+	{DeclaredFileIdentifiers}
+	head=FileIdentifier ( ',' tail+=FileIdentifier )*
+;
+
 
 //
 // Expression

@@ -38,57 +38,54 @@ class VhdlValidator extends AbstractVhdlValidator {
 
 	@Check
 	def checkForMultipleSignalDeclaration(InterfaceDeclaration interfaceDeclaration) {
-		if(interfaceDeclaration.eContainer().eContainer() instanceof GenericClause ||
-		   interfaceDeclaration.eContainer().eContainer() instanceof ProcedureSpecification ||
-		   interfaceDeclaration.eContainer().eContainer() instanceof ProcedureDeclaration ) {
-		   	return;
+		val entity = EcoreUtil2.getContainerOfType(interfaceDeclaration, typeof(EntityDeclaration));
+		if(entity === null) {
+			return;
 		}
 
-		if(interfaceDeclaration.eContainer().eContainer().eContainer() instanceof EntityDeclaration) {
-			val model = interfaceDeclaration.eResource().getContents().get(0) as Model;
-			val entity = interfaceDeclaration.eContainer().eContainer().eContainer();
-			val architectureDeclarations = EcoreUtil2.getAllContentsOfType(model, typeof(ArchitectureDeclaration));
+		val model = interfaceDeclaration.eResource().getContents().get(0) as Model;
+		val architectureDeclarations = EcoreUtil2.getAllContentsOfType(model, typeof(ArchitectureDeclaration));
+
+		// Bug?
+		// architectureDeclarations.filter[architecture|architecture.entityRef == entity].forEach[architecture|	
 			
-			architectureDeclarations
-				.filter[architecture| architecture.entityRef == entity]			
-				.forEach[architecture|
-				if(architecture === null) {
-					return;
+		architectureDeclarations.forEach[architecture|	
+			if(architecture.entityRef != entity) {
+				return;
+			}
+
+			val interfaceDeclarations = EcoreUtil2.getAllContentsOfType(entity, typeof(InterfaceDeclaration));
+			val signalDeclarations = EcoreUtil2.getAllContentsOfType(architecture, typeof(SignalDeclaration));
+			
+			val thisIdentifiers = new ArrayList<Identifier>();
+			val otherIdentifiers = new ArrayList<Identifier>();
+			
+			thisIdentifiers.add(interfaceDeclaration.identifiers.head);
+			thisIdentifiers.addAll(interfaceDeclaration.identifiers.tail);
+			
+			for(InterfaceDeclaration otherInterfaceDeclaration : interfaceDeclarations) {
+				if(otherInterfaceDeclaration.eContainer().eContainer().eContainer() instanceof EntityDeclaration) {
+					otherIdentifiers.add(otherInterfaceDeclaration.identifiers.head);
+					otherIdentifiers.addAll(otherInterfaceDeclaration.identifiers.tail);
 				}
-				
-				val interfaceDeclarations = EcoreUtil2.getAllContentsOfType(entity, typeof(InterfaceDeclaration));
-				val signalDeclarations = EcoreUtil2.getAllContentsOfType(architecture, typeof(SignalDeclaration));
-				
-				val thisIdentifiers = new ArrayList<Identifier>();
-				val otherIdentifiers = new ArrayList<Identifier>();
-				
-				thisIdentifiers.add(interfaceDeclaration.identifiers.head);
-				thisIdentifiers.addAll(interfaceDeclaration.identifiers.tail);
-				
-				for(InterfaceDeclaration otherInterfaceDeclaration : interfaceDeclarations) {
-					if(otherInterfaceDeclaration.eContainer().eContainer().eContainer() instanceof EntityDeclaration) {
-						otherIdentifiers.add(otherInterfaceDeclaration.identifiers.head);
-						otherIdentifiers.addAll(otherInterfaceDeclaration.identifiers.tail);
+			}
+	
+			for(SignalDeclaration otherSignalDeclaration : signalDeclarations) {
+				otherIdentifiers.add(otherSignalDeclaration.identifiers.head);
+				otherIdentifiers.addAll(otherSignalDeclaration.identifiers.tail);
+			}
+			
+			otherIdentifiers.removeAll(thisIdentifiers);
+			
+			for(Identifier thisIdentifier : thisIdentifiers) {
+				for(Identifier otherIdentifier : otherIdentifiers) {
+					if(thisIdentifier.name.equals(otherIdentifier.name)) {
+						error('Signal ' + thisIdentifier.name + ' is declared multiple times', thisIdentifier, null);
+						error('Signal ' + otherIdentifier.name + ' is declared multiple times', otherIdentifier, null);
 					}
 				}
-		
-				for(SignalDeclaration otherSignalDeclaration : signalDeclarations) {
-					otherIdentifiers.add(otherSignalDeclaration.identifiers.head);
-					otherIdentifiers.addAll(otherSignalDeclaration.identifiers.tail);
-				}
-				
-				otherIdentifiers.removeAll(thisIdentifiers);
-				
-				for(Identifier thisIdentifier : thisIdentifiers) {
-					for(Identifier otherIdentifier : otherIdentifiers) {
-						if(thisIdentifier.name.equals(otherIdentifier.name)) {
-							error('Signal ' + thisIdentifier.name + ' is declared multiple times', thisIdentifier, null);
-							error('Signal ' + otherIdentifier.name + ' is declared multiple times', otherIdentifier, null);
-						}
-					}
-				}
-			];
-		}
+			}
+		];
 	}
 
 	@Check
@@ -492,4 +489,12 @@ class VhdlValidator extends AbstractVhdlValidator {
 			}
 		]
 	}
+
+//	@Check
+//	def noAssignment(ArchitectureDeclaration architectureDeclaration) {
+//	}
+//
+//	@Check
+//	def checkSignalInitialization(ProcessStatement processStatement) {
+//	}
 }
