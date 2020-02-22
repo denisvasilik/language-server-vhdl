@@ -26,6 +26,7 @@ import java.util.List
 import org.eclipse.emf.ecore.EObject
 import org.eclipse.xtext.EcoreUtil2
 import org.eclipse.xtext.validation.Check
+import com.eccelerators.plugins.vhdl.vhdl.PackageDeclaration
 
 /**
  * This class contains custom validation rules. 
@@ -133,6 +134,11 @@ class VhdlValidator extends AbstractVhdlValidator {
 	 */
 	@Check
 	def checkSignalUsage(InterfaceDeclaration interfaceDeclaration) {
+		var packageDeclaration = EcoreUtil2.getContainerOfType(interfaceDeclaration, typeof(PackageDeclaration));
+		if(packageDeclaration !== null) {
+			return;
+		}
+
 		// Signal of a component declaration should not be checked.
 		if (interfaceDeclaration.eContainer().eContainer().eContainer() instanceof ComponentDeclaration ||
 			interfaceDeclaration.eContainer().eContainer() instanceof GenericClause) {
@@ -162,6 +168,11 @@ class VhdlValidator extends AbstractVhdlValidator {
 
 	@Check
 	def checkSignalUsage(SignalDeclaration signalDeclaration) {
+		var packageDeclaration = EcoreUtil2.getContainerOfType(signalDeclaration, typeof(PackageDeclaration));
+		if(packageDeclaration !== null) {
+			return;
+		}
+
 		val model = signalDeclaration.eResource().getContents().get(0) as Model;
 		val identifierRefs = EcoreUtil2.getAllContentsOfType(model, typeof(IdentifierReference));
 		val identifierHead = signalDeclaration.identifiers.head;
@@ -318,6 +329,11 @@ class VhdlValidator extends AbstractVhdlValidator {
 	 */
 	@Check
 	def checkUndefinedSignal(SignalDeclaration signalDeclaration) {
+		var packageDeclaration = EcoreUtil2.getContainerOfType(signalDeclaration, typeof(PackageDeclaration));
+		if(packageDeclaration !== null) {
+			return;
+		}
+
 		// Gather only identifier references on the left side of an signal assignment
 		var identifierRefs = getAssignedSignals(signalDeclaration);
 		val identifierHead = signalDeclaration.identifiers.head;
@@ -368,14 +384,24 @@ class VhdlValidator extends AbstractVhdlValidator {
 	 */
 	@Check
 	def checkUndefinedSignal(InterfaceDeclaration interfaceDeclaration) {
-		// Signal of a component declaration should not be checked.
-		if (interfaceDeclaration.eContainer().eContainer().eContainer() instanceof ComponentDeclaration ||
-			interfaceDeclaration.eContainer().eContainer() instanceof GenericClause) {
+		var packageDeclaration = EcoreUtil2.getContainerOfType(interfaceDeclaration, typeof(PackageDeclaration));
+		if(packageDeclaration !== null) {
 			return;
 		}
 
-		if (interfaceDeclaration.mode.name.equalsIgnoreCase("in"))
+		var componentDeclaration = EcoreUtil2.getContainerOfType(interfaceDeclaration, typeof(ComponentDeclaration));
+		if(componentDeclaration !== null) {
 			return;
+		}
+
+		var genericClause = EcoreUtil2.getContainerOfType(interfaceDeclaration, typeof(GenericClause));
+		if(genericClause !== null) {
+			return;
+		}
+
+		if (interfaceDeclaration.mode.name.equalsIgnoreCase("in")) {
+			return;
+		}
 
 		val model = interfaceDeclaration.eResource().getContents().get(0) as Model;
 		val signalAssignmentStatements = EcoreUtil2.getAllContentsOfType(model, SignalAssignmentStatement);
