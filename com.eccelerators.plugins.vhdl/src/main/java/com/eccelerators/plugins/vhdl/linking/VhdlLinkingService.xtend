@@ -251,6 +251,50 @@ class VhdlLinkingService extends DefaultLinkingService {
 		identifierNames.add("false");
 		identifierNames.add("true");
 		identifierNames.add("string");
+		//
+		// Severity level
+		//
+		identifierNames.add("note");
+		identifierNames.add("warning");
+		identifierNames.add("error");
+		identifierNames.add("failure");
+		//
+		// https://www.csee.umbc.edu/portal/help/VHDL/standard.vhdl
+		//
+		identifierNames.add("NUL");
+		identifierNames.add("SOH");
+		identifierNames.add("STX");
+		identifierNames.add("ETX");
+		identifierNames.add("EOT");
+		identifierNames.add("ENQ");
+		identifierNames.add("ACK");
+		identifierNames.add("BEL");
+		identifierNames.add("BS");
+		identifierNames.add("HT");
+		identifierNames.add("LF");
+		identifierNames.add("VT");
+		identifierNames.add("FF");
+		identifierNames.add("CR");
+		identifierNames.add("SO");
+		identifierNames.add("SI");
+		identifierNames.add("DLE");
+		identifierNames.add("DC1");
+		identifierNames.add("DC2");
+		identifierNames.add("DC3");
+		identifierNames.add("DC4");
+		identifierNames.add("NAK");
+		identifierNames.add("SYN");
+		identifierNames.add("ETB");
+		identifierNames.add("CAN");
+		identifierNames.add("EM");
+		identifierNames.add("SUB");
+		identifierNames.add("ESC");
+		identifierNames.add("FSP");
+		identifierNames.add("GSP");
+		identifierNames.add("RSP");
+		identifierNames.add("USP");
+		//
+		identifierNames.add("to_hstring");
 		
 		return identifierNames;
 	}
@@ -293,7 +337,6 @@ class VhdlLinkingService extends DefaultLinkingService {
 
 		for(EObject object : objects) {
 			switch object {
-				// FIXME: Maybe TypeIdentifier should inherit from Identifier!!!
 				Identifier : {
 					if (object.name.equalsIgnoreCase(tokenText)) {
 						var identifier = VhdlFactory.eINSTANCE.createIdentifier();
