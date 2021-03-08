@@ -18,6 +18,7 @@ import org.eclipse.lsp4j.SymbolInformation
 import org.eclipse.lsp4j.DocumentSymbol
 import com.eccelerators.plugins.vhdl.vhdl.ComponentDeclaration
 import com.eccelerators.plugins.vhdl.vhdl.ComponentInstantiationStatement
+import com.eccelerators.plugins.vhdl.vhdl.ProcessStatement
 
 class VhdlHierarchicalDocumentSymbolService extends HierarchicalDocumentSymbolService {
 
@@ -54,6 +55,9 @@ class VhdlHierarchicalDocumentSymbolService extends HierarchicalDocumentSymbolSe
 					} else if(object instanceof ComponentInstantiationStatement) {
 						if (componentParentSymbol !== null)
 							componentParentSymbol.children.add(symbol)
+					} else if(object instanceof ProcessStatement) {
+						if (architectureParentSymbol !== null)
+							architectureParentSymbol.children.add(symbol);
 					}
 				}
 			}
@@ -63,7 +67,7 @@ class VhdlHierarchicalDocumentSymbolService extends HierarchicalDocumentSymbolSe
 
 	override protected getAllContents(Resource resource) {
 		val module = resource.contents.head;
-		
+
 		if (module instanceof Model) {
 			val allStatments = EcoreUtil.getAllProperContents(resource, true);
 			
@@ -74,7 +78,8 @@ class VhdlHierarchicalDocumentSymbolService extends HierarchicalDocumentSymbolSe
 			      return statement instanceof EntityDeclaration || 
 			      		 statement instanceof ArchitectureDeclaration ||
 			      		 statement instanceof ComponentDeclaration ||
-			      		 statement instanceof ComponentInstantiationStatement;
+			      		 statement instanceof ComponentInstantiationStatement ||
+			      		 statement instanceof ProcessStatement;
 			]
 		}
 		

@@ -6,6 +6,7 @@ import com.eccelerators.plugins.vhdl.vhdl.EntityDeclaration
 import com.eccelerators.plugins.vhdl.vhdl.ArchitectureDeclaration
 import com.eccelerators.plugins.vhdl.vhdl.ComponentDeclaration
 import com.eccelerators.plugins.vhdl.vhdl.ComponentInstantiationStatement
+import com.eccelerators.plugins.vhdl.vhdl.ProcessStatement
 
 class VhdlDocumentSymbolNameProvider extends DocumentSymbolNameProvider {
 
@@ -22,6 +23,13 @@ class VhdlDocumentSymbolNameProvider extends DocumentSymbolNameProvider {
 		} else if(object instanceof ComponentInstantiationStatement) {
 			val componentInstantiationStatement = object as ComponentInstantiationStatement
 			return componentInstantiationStatement.name
+		} else if(object instanceof ProcessStatement) {
+			val processStatement = object as ProcessStatement
+			if(processStatement.name === null || processStatement.name.empty) {
+				return "<Anonymous Process>"
+			} else {
+				return processStatement.name
+			}			
 		}
 		
 		return super.getName(object);

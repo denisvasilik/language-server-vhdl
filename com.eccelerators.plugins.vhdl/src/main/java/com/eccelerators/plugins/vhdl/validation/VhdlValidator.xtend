@@ -14,8 +14,6 @@ import com.eccelerators.plugins.vhdl.vhdl.IdentifierReference
 import com.eccelerators.plugins.vhdl.vhdl.InterfaceDeclaration
 import com.eccelerators.plugins.vhdl.vhdl.Model
 import com.eccelerators.plugins.vhdl.vhdl.PortClause
-import com.eccelerators.plugins.vhdl.vhdl.ProcedureDeclaration
-import com.eccelerators.plugins.vhdl.vhdl.ProcedureSpecification
 import com.eccelerators.plugins.vhdl.vhdl.ProcessStatement
 import com.eccelerators.plugins.vhdl.vhdl.QualifiedIdentifierReference
 import com.eccelerators.plugins.vhdl.vhdl.SignalAssignmentStatement
@@ -26,10 +24,13 @@ import java.util.List
 import org.eclipse.emf.ecore.EObject
 import org.eclipse.xtext.EcoreUtil2
 import org.eclipse.xtext.validation.Check
+import com.eccelerators.plugins.vhdl.vhdl.PackageDeclaration
+import com.eccelerators.plugins.vhdl.vhdl.NamedDeclaration
+import com.eccelerators.plugins.vhdl.scoping.VhdlScopeProvider
 
 /**
- * This class contains custom validation rules. 
- * 
+ * This class contains custom validation rules.
+ *
  * See https://www.eclipse.org/Xtext/documentation/303_runtime_concepts.html#validation
  */
 class VhdlValidator extends AbstractVhdlValidator {
@@ -47,36 +48,36 @@ class VhdlValidator extends AbstractVhdlValidator {
 		val architectureDeclarations = EcoreUtil2.getAllContentsOfType(model, typeof(ArchitectureDeclaration));
 
 		// Bug?
-		// architectureDeclarations.filter[architecture|architecture.entityRef == entity].forEach[architecture|	
-			
-		architectureDeclarations.forEach[architecture|	
+		// architectureDeclarations.filter[architecture|architecture.entityRef == entity].forEach[architecture|
+
+		architectureDeclarations.forEach[architecture|
 			if(architecture.entityRef != entity) {
 				return;
 			}
 
 			val interfaceDeclarations = EcoreUtil2.getAllContentsOfType(entity, typeof(InterfaceDeclaration));
 			val signalDeclarations = EcoreUtil2.getAllContentsOfType(architecture, typeof(SignalDeclaration));
-			
+
 			val thisIdentifiers = new ArrayList<Identifier>();
 			val otherIdentifiers = new ArrayList<Identifier>();
-			
+
 			thisIdentifiers.add(interfaceDeclaration.identifiers.head);
 			thisIdentifiers.addAll(interfaceDeclaration.identifiers.tail);
-			
+
 			for(InterfaceDeclaration otherInterfaceDeclaration : interfaceDeclarations) {
 				if(otherInterfaceDeclaration.eContainer().eContainer().eContainer() instanceof EntityDeclaration) {
 					otherIdentifiers.add(otherInterfaceDeclaration.identifiers.head);
 					otherIdentifiers.addAll(otherInterfaceDeclaration.identifiers.tail);
 				}
 			}
-	
+
 			for(SignalDeclaration otherSignalDeclaration : signalDeclarations) {
 				otherIdentifiers.add(otherSignalDeclaration.identifiers.head);
 				otherIdentifiers.addAll(otherSignalDeclaration.identifiers.tail);
 			}
-			
+
 			otherIdentifiers.removeAll(thisIdentifiers);
-			
+
 			for(Identifier thisIdentifier : thisIdentifiers) {
 				for(Identifier otherIdentifier : otherIdentifiers) {
 					if(thisIdentifier.name.equals(otherIdentifier.name)) {
@@ -100,10 +101,10 @@ class VhdlValidator extends AbstractVhdlValidator {
 
 		val thisIdentifiers = new ArrayList<Identifier>();
 		val otherIdentifiers = new ArrayList<Identifier>();
-		
+
 		thisIdentifiers.add(signalDeclaration.identifiers.head);
 		thisIdentifiers.addAll(signalDeclaration.identifiers.tail);
-		
+
 		for(InterfaceDeclaration interfaceDeclaration : interfaceDeclarations) {
 			if(interfaceDeclaration.eContainer().eContainer().eContainer() instanceof EntityDeclaration) {
 				otherIdentifiers.add(interfaceDeclaration.identifiers.head);
@@ -115,9 +116,9 @@ class VhdlValidator extends AbstractVhdlValidator {
 			otherIdentifiers.add(otherSignalDeclaration.identifiers.head);
 			otherIdentifiers.addAll(otherSignalDeclaration.identifiers.tail);
 		}
-		
+
 		otherIdentifiers.removeAll(thisIdentifiers);
-		
+
 		for(Identifier thisIdentifier : thisIdentifiers) {
 			for(Identifier otherIdentifier : otherIdentifiers) {
 				if(thisIdentifier.name.equals(otherIdentifier.name)) {
@@ -133,6 +134,11 @@ class VhdlValidator extends AbstractVhdlValidator {
 	 */
 	@Check
 	def checkSignalUsage(InterfaceDeclaration interfaceDeclaration) {
+		var packageDeclaration = EcoreUtil2.getContainerOfType(interfaceDeclaration, typeof(PackageDeclaration));
+		if(packageDeclaration !== null) {
+			return;
+		}
+
 		// Signal of a component declaration should not be checked.
 		if (interfaceDeclaration.eContainer().eContainer().eContainer() instanceof ComponentDeclaration ||
 			interfaceDeclaration.eContainer().eContainer() instanceof GenericClause) {
@@ -162,6 +168,11 @@ class VhdlValidator extends AbstractVhdlValidator {
 
 	@Check
 	def checkSignalUsage(SignalDeclaration signalDeclaration) {
+		var packageDeclaration = EcoreUtil2.getContainerOfType(signalDeclaration, typeof(PackageDeclaration));
+		if(packageDeclaration !== null) {
+			return;
+		}
+
 		val model = signalDeclaration.eResource().getContents().get(0) as Model;
 		val identifierRefs = EcoreUtil2.getAllContentsOfType(model, typeof(IdentifierReference));
 		val identifierHead = signalDeclaration.identifiers.head;
@@ -184,6 +195,20 @@ class VhdlValidator extends AbstractVhdlValidator {
 	}
 
 	@Check
+	def checkMultipleEntityDeclarations(EntityDeclaration entityDeclaration) {
+		var usageCount = 0;
+		for(otherEntityDeclaration : VhdlScopeProvider.EntityDeclarations) {
+			if (otherEntityDeclaration.name.equalsIgnoreCase(entityDeclaration.name)) {
+				usageCount++;
+			}
+		}
+
+		if (usageCount > 1) {
+			warning('Entity ' + entityDeclaration.name + ' is declared several times.', null);
+		}
+	}
+
+	@Check
 	def checkUsageOfComponent(ComponentDeclaration componentDeclaration) {
 		val architectureDeclaration = componentDeclaration.eContainer() as ArchitectureDeclaration;
 		val componentInstances = EcoreUtil2.getAllContentsOfType(architectureDeclaration,
@@ -191,7 +216,8 @@ class VhdlValidator extends AbstractVhdlValidator {
 
 		var isInstantiated = false;
 		for (ComponentInstantiationStatement componentInstance : componentInstances) {
-			if (componentInstance.type.ref.name.equalsIgnoreCase(componentDeclaration.name)) {
+ 			var namedDeclaration = componentInstance.instantiatedUnit.componentRef as NamedDeclaration;
+			if (namedDeclaration.name.equalsIgnoreCase(componentDeclaration.name)) {
 				isInstantiated = true;
 			}
 		}
@@ -318,6 +344,11 @@ class VhdlValidator extends AbstractVhdlValidator {
 	 */
 	@Check
 	def checkUndefinedSignal(SignalDeclaration signalDeclaration) {
+		var packageDeclaration = EcoreUtil2.getContainerOfType(signalDeclaration, typeof(PackageDeclaration));
+		if(packageDeclaration !== null) {
+			return;
+		}
+
 		// Gather only identifier references on the left side of an signal assignment
 		var identifierRefs = getAssignedSignals(signalDeclaration);
 		val identifierHead = signalDeclaration.identifiers.head;
@@ -360,7 +391,7 @@ class VhdlValidator extends AbstractVhdlValidator {
 			val associationList = componentInstantiationStatement.portMapAspect.associationList;
 			identifierRefs.addAll(EcoreUtil2.getAllContentsOfType(associationList, IdentifierReference));
 		}
-		return identifierRefs; 
+		return identifierRefs;
 	}
 
 	/**
@@ -368,14 +399,24 @@ class VhdlValidator extends AbstractVhdlValidator {
 	 */
 	@Check
 	def checkUndefinedSignal(InterfaceDeclaration interfaceDeclaration) {
-		// Signal of a component declaration should not be checked.
-		if (interfaceDeclaration.eContainer().eContainer().eContainer() instanceof ComponentDeclaration ||
-			interfaceDeclaration.eContainer().eContainer() instanceof GenericClause) {
+		var packageDeclaration = EcoreUtil2.getContainerOfType(interfaceDeclaration, typeof(PackageDeclaration));
+		if(packageDeclaration !== null) {
 			return;
 		}
 
-		if (interfaceDeclaration.mode.name.equalsIgnoreCase("in"))
+		var componentDeclaration = EcoreUtil2.getContainerOfType(interfaceDeclaration, typeof(ComponentDeclaration));
+		if(componentDeclaration !== null) {
 			return;
+		}
+
+		var genericClause = EcoreUtil2.getContainerOfType(interfaceDeclaration, typeof(GenericClause));
+		if(genericClause !== null) {
+			return;
+		}
+
+		if (interfaceDeclaration.mode.name.equalsIgnoreCase("in")) {
+			return;
+		}
 
 		val model = interfaceDeclaration.eResource().getContents().get(0) as Model;
 		val signalAssignmentStatements = EcoreUtil2.getAllContentsOfType(model, SignalAssignmentStatement);
@@ -424,7 +465,7 @@ class VhdlValidator extends AbstractVhdlValidator {
 		if(portClause === null) {
 			return;
 		}
-		
+
 		if(interfaceDeclaration.mode === null) {
 			warning('No signal mode specified.', interfaceDeclaration, null);
 		}
@@ -436,7 +477,7 @@ class VhdlValidator extends AbstractVhdlValidator {
 		if(architectureDeclaration === null) {
 			return;
 		}
-		
+
 		var entityDeclaration = architectureDeclaration.getEntityRef()
 		var interfaceDeclarations = EcoreUtil2.getAllContentsOfType(entityDeclaration, typeof(InterfaceDeclaration));
 
@@ -445,7 +486,7 @@ class VhdlValidator extends AbstractVhdlValidator {
 				interfaceDeclaration.mode.name.equalsIgnoreCase("inout")) {
 				return;
 			}
-			
+
 			val headIdentifier = signalAssignmentStatement.target.ref;
 			if (headIdentifier.name.equals(interfaceDeclaration.identifiers.head.name)) {
 				error('Invalid signal assignment ' + headIdentifier.name + ' is declared as input.',	signalAssignmentStatement.target, null);
@@ -459,14 +500,14 @@ class VhdlValidator extends AbstractVhdlValidator {
 			}
 		]
 	}
-	
+
 	@Check
 	def checkInvalidSignalAssignment(ConditionalSignalAssignmentSatement conditionalSignalAssignmentSatement) {
 		var architectureDeclaration = EcoreUtil2.getContainerOfType(conditionalSignalAssignmentSatement, typeof(ArchitectureDeclaration));
 		if(architectureDeclaration === null) {
 			return;
 		}
-		
+
 		var entityDeclaration = architectureDeclaration.getEntityRef()
 		var interfaceDeclarations = EcoreUtil2.getAllContentsOfType(entityDeclaration, typeof(InterfaceDeclaration));
 
@@ -475,7 +516,7 @@ class VhdlValidator extends AbstractVhdlValidator {
 				interfaceDeclaration.mode.name.equalsIgnoreCase("inout")) {
 				return;
 			}
-			
+
 			val headIdentifier = conditionalSignalAssignmentSatement.target.ref;
 			if (headIdentifier.name.equals(interfaceDeclaration.identifiers.head.name)) {
 				error('Invalid signal assignment ' + headIdentifier.name + ' is declared as input.',	conditionalSignalAssignmentSatement.target, null);

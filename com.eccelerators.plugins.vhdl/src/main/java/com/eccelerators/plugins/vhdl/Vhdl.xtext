@@ -28,7 +28,8 @@ SecondaryUnit:
 	| PackageBody
 ;
 
-EntityDeclaration:
+EntityDeclaration returns EntityDeclaration:
+	{EntityDeclaration}
 	'entity' name=ID 'is'
 		genericClause=GenericClause?
 		portClause=PortClause?
@@ -180,9 +181,16 @@ ConditionalSignalAssignmentSatement returns ConditionalSignalAssignmentSatement:
 
 ComponentInstantiationStatement returns ComponentInstantiationStatement:
 	{ComponentInstantiationStatement}
-	name=ID ':' type=[ComponentDeclaration | ID]
+	name=ID ':' instantiatedUnit=InstantiatedUnit
 	genericMapAspect=GenericMapAspect?
 	portMapAspect=PortMapAspect? ';'
+;
+
+// NOTE: Configuration is currently not supported.
+InstantiatedUnit returns InstantiatedUnit:
+	{InstantiatedUnit}
+	'component'? componentRef=[ComponentDeclaration | ID]
+	| 'entity' (library=LibraryIdentifier '.') entityRef=[EntityDeclaration| ID] ('(' arch=[ArchitectureDeclaration| ID] ')')?
 ;
 
 SubtypeDeclaration returns SubtypeDeclaration:
@@ -930,8 +938,6 @@ InnerRangeConstraint:
 ;
 
 AttributeConstraint returns Constraint:
-	// NOTE: Currently, only attributes most likely supported by
-	//       synthesis tools are listed here.
 	  {AttributeConstraint} '\'LEFT' ('(' value=IntegerLiteral ')')?
 	| {AttributeConstraint} '\'RIGHT' ('(' value=IntegerLiteral ')')?
 	| {AttributeConstraint} '\'LOW' ('(' value=IntegerLiteral ')')?
@@ -939,6 +945,7 @@ AttributeConstraint returns Constraint:
 	| {AttributeConstraint} '\'RANGE' ('(' value=IntegerLiteral ')')?
 	| {AttributeConstraint} '\'REVERSE_RANGE' '(' value=IntegerLiteral ')'
 	| {AttributeConstraint} '\'LENGTH' ('(' value=IntegerLiteral ')')?
+	| {AttributeConstraint} '\'IMAGE' ('(' value=VariableIdentifier ')')?
 	| {AttributeConstraint} '\'EVENT'
 	| {AttributeConstraint} '\'(' value=StringLiteral ')'
 ;
