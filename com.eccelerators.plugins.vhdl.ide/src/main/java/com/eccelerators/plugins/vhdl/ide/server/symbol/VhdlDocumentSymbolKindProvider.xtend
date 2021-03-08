@@ -8,6 +8,7 @@ import static com.eccelerators.plugins.vhdl.vhdl.VhdlPackage.Literals.ENTITY_DEC
 import static com.eccelerators.plugins.vhdl.vhdl.VhdlPackage.Literals.ARCHITECTURE_DECLARATION
 import static com.eccelerators.plugins.vhdl.vhdl.VhdlPackage.Literals.COMPONENT_DECLARATION
 import static com.eccelerators.plugins.vhdl.vhdl.VhdlPackage.Literals.COMPONENT_INSTANTIATION_STATEMENT
+import static com.eccelerators.plugins.vhdl.vhdl.VhdlPackage.Literals.PROCESS_STATEMENT
 
 class VhdlDocumentSymbolKindProvider extends DocumentSymbolKindProvider {
 
@@ -17,6 +18,7 @@ class VhdlDocumentSymbolKindProvider extends DocumentSymbolKindProvider {
 			case ARCHITECTURE_DECLARATION: Class
 			case COMPONENT_DECLARATION: Method
 			case COMPONENT_INSTANTIATION_STATEMENT: Field
+			case PROCESS_STATEMENT: Event
 			default: Property
 		}
 	}
