@@ -8,12 +8,14 @@ import org.eclipse.emf.common.util.EList;
 import org.eclipse.emf.ecore.EClass;
 import org.eclipse.emf.ecore.EObject;
 import org.eclipse.emf.ecore.EReference;
+import org.eclipse.emf.ecore.resource.Resource;
 import org.eclipse.xtext.EcoreUtil2;
 import org.eclipse.xtext.naming.QualifiedName;
 import org.eclipse.xtext.scoping.IScope;
 import org.eclipse.xtext.scoping.Scopes;
 import org.eclipse.xtext.scoping.impl.SimpleScope;
 import org.eclipse.xtext.util.SimpleAttributeResolver;
+import org.eclipse.emf.common.util.URI;
 
 import com.eccelerators.plugins.vhdl.vhdl.ArchitectureDeclaration;
 import com.eccelerators.plugins.vhdl.vhdl.ComponentDeclaration;
@@ -21,6 +23,7 @@ import com.eccelerators.plugins.vhdl.vhdl.ComponentInstantiationStatement;
 import com.eccelerators.plugins.vhdl.vhdl.Declaration;
 import com.eccelerators.plugins.vhdl.vhdl.DesignUnit;
 import com.eccelerators.plugins.vhdl.vhdl.EntityDeclaration;
+import com.eccelerators.plugins.vhdl.vhdl.GenericClause;
 import com.eccelerators.plugins.vhdl.vhdl.GenericIdentifierReference;
 import com.eccelerators.plugins.vhdl.vhdl.Identifier;
 import com.eccelerators.plugins.vhdl.vhdl.IdentifierReference;
@@ -30,6 +33,7 @@ import com.eccelerators.plugins.vhdl.vhdl.InterfaceList;
 import com.eccelerators.plugins.vhdl.vhdl.PackageBody;
 import com.eccelerators.plugins.vhdl.vhdl.PackageDeclaration;
 import com.eccelerators.plugins.vhdl.vhdl.ParameterizedTypeIdentifierReference;
+import com.eccelerators.plugins.vhdl.vhdl.PortClause;
 import com.eccelerators.plugins.vhdl.vhdl.PortIdentifierReference;
 import com.eccelerators.plugins.vhdl.vhdl.ProcessStatement;
 import com.eccelerators.plugins.vhdl.vhdl.QualifiedIdentifierReference;
@@ -39,7 +43,6 @@ import com.eccelerators.plugins.vhdl.vhdl.SignalOrConstantIdentifier;
 import com.eccelerators.plugins.vhdl.vhdl.TypeIdentifier;
 import com.eccelerators.plugins.vhdl.vhdl.TypeIdentifierReference;
 import com.eccelerators.plugins.vhdl.vhdl.Model;
-import com.eccelerators.plugins.vhdl.vhdl.NamedDeclaration;
 
 public class VhdlScopeProvider extends VhdlAbstractDeclarativeScopeProvider { 
 	
@@ -49,6 +52,17 @@ public class VhdlScopeProvider extends VhdlAbstractDeclarativeScopeProvider {
 	 * Gather entity declarations of all project related files.
 	 */
 	protected IScope scope_EntityDeclaration(EntityDeclaration entityDeclaration, EClass type) {
+		Resource resource = entityDeclaration.eResource();
+		String uri = resource.getURI().toPlatformString(false);
+		
+		for (EntityDeclaration otherEntityDeclaration : EntityDeclarations) {
+			Resource otherResource = otherEntityDeclaration.eResource();
+			String otherUri = otherResource.getURI().toPlatformString(false);
+			if (otherUri == uri) {
+				return IScope.NULLSCOPE;
+			}
+		}
+		
 		EntityDeclarations.add(entityDeclaration);
 		return IScope.NULLSCOPE;
 	}
@@ -202,28 +216,48 @@ public class VhdlScopeProvider extends VhdlAbstractDeclarativeScopeProvider {
  	 		return IScope.NULLSCOPE;
  	 	}
  		
- 		Model model = (Model) genericIdentifierReference.eResource().getContents().get(0);
- 		ComponentInstantiationStatement componentInstantiation = (ComponentInstantiationStatement)genericIdentifierReference.eContainer().eContainer().eContainer().eContainer().eContainer();
- 		
- 		List<ComponentDeclaration> componentDeclarations = EcoreUtil2.getAllContentsOfType(model, ComponentDeclaration.class);
-		List<Identifier> identifiers = new BasicEList<Identifier>();
- 		
- 		for(ComponentDeclaration componentDeclaration : componentDeclarations) {
- 			NamedDeclaration namedDeclaration = (NamedDeclaration)componentInstantiation.getInstantiatedUnit().getComponentRef();
- 			if(componentDeclaration.getName() != null && 
- 			   componentDeclaration.getName().equalsIgnoreCase(namedDeclaration.getName())) {
- 				InterfaceList genericInterfaceList = componentDeclaration.getGenericClause().getInterfaceList();
- 				
- 				List<InterfaceDeclaration> genericInterfaceDeclarations = new BasicEList<InterfaceDeclaration>();
- 				genericInterfaceDeclarations.add(genericInterfaceList.getHead());
- 				genericInterfaceDeclarations.addAll(genericInterfaceList.getTail());
- 				
- 				for(InterfaceDeclaration genericInterfaceDeclaration : genericInterfaceDeclarations) {
- 					identifiers.add(genericInterfaceDeclaration.getIdentifiers().getHead());
- 					identifiers.addAll(genericInterfaceDeclaration.getIdentifiers().getTail());
- 				}
- 			}
- 		}
+ 		ComponentInstantiationStatement componentInstantiation = EcoreUtil2.getContainerOfType(genericIdentifierReference, ComponentInstantiationStatement.class);
+
+ 		List<Identifier> identifiers = new BasicEList<Identifier>();
+ 		InstantiatedUnit instantiatedUnit = componentInstantiation.getInstantiatedUnit();
+
+		if (instantiatedUnit.getEntityRef() != null) {
+			EntityDeclaration entityDeclaration = instantiatedUnit.getEntityRef();
+
+			GenericClause genericClause = entityDeclaration.getGenericClause();
+			if (genericClause == null) {
+				return IScope.NULLSCOPE;
+			}
+
+			InterfaceList genericInterfaceList = genericClause.getInterfaceList();
+			List<InterfaceDeclaration> genericInterfaceDeclarations = new BasicEList<InterfaceDeclaration>();
+			genericInterfaceDeclarations.add(genericInterfaceList.getHead());
+			genericInterfaceDeclarations.addAll(genericInterfaceList.getTail());
+			
+			for(InterfaceDeclaration genericInterfaceDeclaration : genericInterfaceDeclarations) {
+				identifiers.add(genericInterfaceDeclaration.getIdentifiers().getHead());
+				identifiers.addAll(genericInterfaceDeclaration.getIdentifiers().getTail());
+			}
+		}
+		
+		if (instantiatedUnit.getComponentRef() != null) {
+			ComponentDeclaration componentDeclaration = instantiatedUnit.getComponentRef();
+			GenericClause genericClause = componentDeclaration.getGenericClause();
+			
+			if (genericClause == null) {
+				return IScope.NULLSCOPE;
+			}
+
+			InterfaceList genericInterfaceList = genericClause.getInterfaceList();
+			List<InterfaceDeclaration> genericInterfaceDeclarations = new BasicEList<InterfaceDeclaration>();
+			genericInterfaceDeclarations.add(genericInterfaceList.getHead());
+			genericInterfaceDeclarations.addAll(genericInterfaceList.getTail());
+			
+			for(InterfaceDeclaration genericInterfaceDeclaration : genericInterfaceDeclarations) {
+				identifiers.add(genericInterfaceDeclaration.getIdentifiers().getHead());
+				identifiers.addAll(genericInterfaceDeclaration.getIdentifiers().getTail());
+			}
+		}
  		
  		return scopeFor(genericIdentifierReference, ref, identifiers, true);
 	}
@@ -243,8 +277,13 @@ public class VhdlScopeProvider extends VhdlAbstractDeclarativeScopeProvider {
 
 		if (instantiatedUnit.getEntityRef() != null) {
 			EntityDeclaration entityDeclaration = instantiatedUnit.getEntityRef();
-			InterfaceList portInterfaceList = entityDeclaration.getPortClause().getInterfaceList();
 			
+			PortClause portClause = entityDeclaration.getPortClause();
+			if (portClause == null) {
+				return IScope.NULLSCOPE;
+			}
+
+			InterfaceList portInterfaceList = portClause.getInterfaceList();
 			List<InterfaceDeclaration> portInterfaceDeclarations = new BasicEList<InterfaceDeclaration>();
 			portInterfaceDeclarations.add(portInterfaceList.getHead());
 			portInterfaceDeclarations.addAll(portInterfaceList.getTail());
@@ -257,9 +296,16 @@ public class VhdlScopeProvider extends VhdlAbstractDeclarativeScopeProvider {
 		
 		if (instantiatedUnit.getComponentRef() != null) {
 			ComponentDeclaration componentDeclaration = instantiatedUnit.getComponentRef();
-			EntityDeclaration entityDeclaration = componentDeclaration.getEntityRef();
-			InterfaceList portInterfaceList = entityDeclaration.getPortClause().getInterfaceList();
 			
+			PortClause portClause = componentDeclaration.getPortClause();
+			if (portClause == null) {
+				portClause = componentDeclaration.getPortClause();
+				if (portClause == null) {
+					return IScope.NULLSCOPE;
+				}
+			}
+			
+			InterfaceList portInterfaceList = portClause.getInterfaceList();
 			List<InterfaceDeclaration> portInterfaceDeclarations = new BasicEList<InterfaceDeclaration>();
 			portInterfaceDeclarations.add(portInterfaceList.getHead());
 			portInterfaceDeclarations.addAll(portInterfaceList.getTail());
