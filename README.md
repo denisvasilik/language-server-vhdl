@@ -24,5 +24,5 @@ This project is made available under the MIT License.
 
 [XText]:https://www.eclipse.org/Xtext/
 [Language Server Protocol]:https://langserver.org/
-[VHDL extension for VS Code]:https://github.com/denisvasilik/eccelerators-vhdl-vscode
-[VHDL extension for Theia IDE]:https://github.com/denisvasilik/eccelerators-vhdl-theia
+[VHDL extension for VS Code]:https://github.com/denisvasilik/vscode-vhdl
+[VHDL extension for Theia IDE]:https://github.com/denisvasilik/vscode-vhdl
