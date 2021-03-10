@@ -5,5 +5,10 @@ dependencies {
 }
 
 apply plugin: 'application'
-mainClassName = "org.eclipse.xtext.ide.server.ServerLauncher"
+
+// Default ServerLauncher provided by XText
+//
+// mainClassName = "org.eclipse.xtext.ide.server.ServerLauncher"
+//
+mainClassName = "com.eccelerators.plugins.vhdl.ide.VhdlServerLauncher"
 applicationName = 'language-server'
