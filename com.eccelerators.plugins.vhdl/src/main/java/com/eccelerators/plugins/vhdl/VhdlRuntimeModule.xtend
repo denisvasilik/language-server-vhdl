@@ -6,6 +6,9 @@ import com.eccelerators.plugins.vhdl.AbstractVhdlRuntimeModule;
 import com.eccelerators.plugins.vhdl.linking.VhdlLinkingService
 import com.eccelerators.plugins.vhdl.linking.VhdlLinker
 import org.eclipse.xtext.linking.ILinkingService
+import com.eccelerators.plugins.vhdl.resources.VhdlResourceServiceProvider
+import com.google.inject.Binder
+import org.eclipse.xtext.resource.IResourceServiceProvider
 
 //import com.eccelerators.plugins.vhdl.linking.VhdlLinkingDiagnosticMessageProvider;
 
@@ -32,6 +35,10 @@ class VhdlRuntimeModule extends AbstractVhdlRuntimeModule {
 		return typeof(VhdlLinker);
 	}
 	
+	def Class<? extends IResourceServiceProvider> bindIResourceServiceProvider() {
+		return typeof(VhdlResourceServiceProvider);
+	}
+
 //	@Override 
 //	public Class<? extends ILinkingDiagnosticMessageProvider.Extended> bindILinkingDiagnosticMessageProvider() {
 //		return VhdlLinkingDiagnosticMessageProvider.class;
