@@ -1,15 +1,13 @@
 package com.eccelerators.plugins.vhdl.resources;
 
+import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
-import org.apache.log4j.Logger;
 import org.eclipse.emf.common.util.URI;
 import org.eclipse.xtext.resource.impl.DefaultResourceServiceProvider;
 
 public class VhdlResourceServiceProvider extends DefaultResourceServiceProvider {
-
-	private final static Logger LOG = Logger.getLogger(VhdlResourceServiceProvider.class);
 
 	@Override public boolean canHandle(URI uri) {
 		return isValid(uri);
@@ -40,17 +38,25 @@ public class VhdlResourceServiceProvider extends DefaultResourceServiceProvider 
 	}
 
 	private String getFolderFromPlatformPath(URI uri) {
-		String folderName = uri.segment(2);
-
-		return folderName;
+		return uri.segment(2);
 	}
 
 	private String getFolderNameFromFilePath(URI uri) {
 		Path absolutePath = Paths.get(uri.toString().substring(7));
-        Path basePath = Paths.get("/home/ubuntu-dev/runtime-EclipseXtext");
+        Path basePath = getCurrentWorkingDirectory();
         Path relativePath = basePath.relativize(absolutePath);
-		String folderName = relativePath.subpath(1, 2).toString();
+		String folderName = relativePath.subpath(0, 1).toString();
 
-		return folderName;
+		return folderName.trim();
+	}
+
+	private Path getCurrentWorkingDirectory() {
+		Path cwd = null;
+		try {
+			cwd = Paths.get(new java.io.File( "." ).getCanonicalPath());
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		return cwd;
 	}
 }
