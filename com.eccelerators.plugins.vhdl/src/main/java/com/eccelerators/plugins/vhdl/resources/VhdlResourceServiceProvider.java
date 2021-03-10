@@ -1,14 +1,17 @@
 package com.eccelerators.plugins.vhdl.resources;
 
-import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
 import org.eclipse.emf.common.util.URI;
 import org.eclipse.xtext.resource.impl.DefaultResourceServiceProvider;
-
+ 
 public class VhdlResourceServiceProvider extends DefaultResourceServiceProvider {
 
+	public String ProjectName;
+	
+	public URI ProjectPath;
+	
 	@Override public boolean canHandle(URI uri) {
 		return isValid(uri);
 	}
@@ -19,14 +22,7 @@ public class VhdlResourceServiceProvider extends DefaultResourceServiceProvider 
 	}
 
 	private Boolean isValid(URI uri) {
-		String folderName = null;
-		if(uri.isFile()) {
-			folderName = getFolderNameFromFilePath(uri);
-		} else if (uri.isPlatform()) {
-			folderName = getFolderFromPlatformPath(uri);
-		} else {
-			throw new RuntimeException("Invalid resource URI");
-		}
+		String folderName = getFolderNameFromFilePath(uri);
 
 		if (folderName.equalsIgnoreCase("src") ||
 			folderName.equalsIgnoreCase("tb") ||
@@ -37,26 +33,12 @@ public class VhdlResourceServiceProvider extends DefaultResourceServiceProvider 
 		return false;
 	}
 
-	private String getFolderFromPlatformPath(URI uri) {
-		return uri.segment(2);
-	}
-
 	private String getFolderNameFromFilePath(URI uri) {
 		Path absolutePath = Paths.get(uri.toString().substring(7));
-        Path basePath = getCurrentWorkingDirectory();
+        Path basePath = Paths.get(ProjectPath.toString().substring(7));
         Path relativePath = basePath.relativize(absolutePath);
 		String folderName = relativePath.subpath(0, 1).toString();
 
 		return folderName.trim();
-	}
-
-	private Path getCurrentWorkingDirectory() {
-		Path cwd = null;
-		try {
-			cwd = Paths.get(new java.io.File( "." ).getCanonicalPath());
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-		return cwd;
 	}
 }
